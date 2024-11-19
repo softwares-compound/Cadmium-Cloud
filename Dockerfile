@@ -1,32 +1,40 @@
-# Stage 1: Build the application
-FROM rust:1.66.0 as builder
+# Build stage
+FROM rust:1.75-slim AS builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the entire project into the container
-COPY . .
+# Copy only dependency files first to leverage cache
+COPY Cargo.toml Cargo.lock ./
 
-# Build the application in release mode
-RUN cargo build --release
+# Build dependencies only
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
 
-# Stage 2: Create a minimal runtime image
-FROM debian:buster-slim
+# Now copy the actual source code
+COPY src ./src
 
-# Install necessary system dependencies
-RUN apt-get update && apt-get install -y \
-    libssl-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Build the actual application
+RUN cargo build --release && \
+    strip target/release/cadmium-cloud
 
-# Set the working directory inside the container
+# Runtime stage
+FROM debian:stable-slim
+
+# Install only the essential runtime library
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libssl3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
+# Copy only the compiled binary
 COPY --from=builder /app/target/release/cadmium-cloud .
 
-# Expose the port your application will run on
+ENV RUST_LOG=info
+
 EXPOSE 8080
 
-# Set the entry point to run the application
 CMD ["./cadmium-cloud"]
