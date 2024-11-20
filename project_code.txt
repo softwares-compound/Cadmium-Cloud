@@ -1,0 +1,360 @@
+Project Code Listing
+====================
+
+File: ./Cargo.toml
+--------------------
+[package]
+name = "cadmium-cloud"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+mongodb = { version = "2.0", features = ["tokio-runtime"] }
+dotenv = "0.15"
+log = "0.4"
+env_logger = "0.10"
+tokio = { version = "1", features = ["full"] }
+
+
+File: ./src/logger.rs
+--------------------
+use env_logger;
+
+pub fn init() {
+    env_logger::init();
+}
+
+
+File: ./src/config.rs
+--------------------
+use std::env;
+
+pub struct Config {
+    pub host: String,
+    pub port: u16,
+    pub database_url: String,
+}
+
+pub fn load() -> Config {
+    Config {
+        host: env::var("CADMIUM_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+        port: env::var("CADMIUM_PORT").unwrap_or_else(|_| "8080".to_string()).parse().expect("Invalid port"),
+        database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+    }
+}
+
+
+File: ./src/lib.rs
+--------------------
+pub mod config;
+pub mod logger;
+pub mod routes;
+pub mod db;
+pub mod handlers;
+pub mod services;
+pub mod models;
+
+
+File: ./src/models/organization.rs
+--------------------
+use serde::{Deserialize, Serialize};
+use mongodb::bson::oid::ObjectId;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Organization {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    pub org_name: String,
+    pub admin_email: String,
+    pub admin_password: String,
+    pub cd_id: String,
+    pub cd_secret: String,
+}
+
+
+File: ./src/models/log.rs
+--------------------
+use serde::{Deserialize, Serialize};
+use mongodb::bson::oid::ObjectId;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LogPayload {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    pub organization_id: ObjectId,
+    pub application_id: ObjectId,
+    pub error: String,
+    pub traceback: String,
+    pub url: String,
+    pub method: String,
+}
+
+
+File: ./src/models/mod.rs
+--------------------
+pub mod log;
+pub mod organization;
+pub mod application;
+
+
+File: ./src/models/application.rs
+--------------------
+
+use serde::{Deserialize, Serialize};
+use mongodb::bson::oid::ObjectId;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Application {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    pub organization_id: ObjectId,
+    pub application_name: String,
+}
+
+
+File: ./src/db/mod.rs
+--------------------
+use mongodb::{options::{ClientOptions, ServerApi, ServerApiVersion}, Client, Database};
+use std::env;
+use crate::models::{organization::Organization, application::Application};
+use mongodb::bson::doc;
+
+#[derive(Clone)]
+pub struct MongoRepo {
+    pub db: Database,
+}
+
+impl MongoRepo {
+    pub async fn init() -> Self {
+        let uri = env::var("MONGODB_URI").expect("MONGODB_URI must be set");
+        let mut client_options = ClientOptions::parse(&uri).await.expect("Failed to parse client options");
+
+        // Set the server API version
+        let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
+        client_options.server_api = Some(server_api);
+
+        let client = Client::with_options(client_options).expect("Failed to initialize client");
+        let db_name = env::var("MONGODB_DB").expect("MONGODB_DB must be set");
+        let db = client.database(&db_name);
+        MongoRepo { db }
+    }
+
+    // Organization CRUD operations
+    pub async fn create_organization(&self, org: Organization) -> Result<(), mongodb::error::Error> {
+        let collection = self.db.collection::<Organization>("organizations");
+        collection.insert_one(org, None).await?;
+        Ok(())
+    }
+
+    pub async fn get_organization_by_id(&self, org_id: ObjectId) -> Result<Option<Organization>, mongodb::error::Error> {
+        let collection = self.db.collection::<Organization>("organizations");
+        let filter = doc! { "_id": org_id };
+        collection.find_one(filter, None).await
+    }
+
+    // Application CRUD operations
+    pub async fn create_application(&self, app: Application) -> Result<(), mongodb::error::Error> {
+        let collection = self.db.collection::<Application>("applications");
+        collection.insert_one(app, None).await?;
+        Ok(())
+    }
+
+    pub async fn get_application_by_id(&self, app_id: ObjectId) -> Result<Option<Application>, mongodb::error::Error> {
+        let collection = self.db.collection::<Application>("applications");
+        let filter = doc! { "_id": app_id };
+        collection.find_one(filter, None).await
+    }
+}
+
+
+File: ./src/db/pool.rs
+--------------------
+
+
+File: ./src/main.rs
+--------------------
+// File: ./src/main.rs
+use actix_web::{App, HttpServer, middleware, web};
+use dotenv::dotenv;
+
+mod config;
+mod logger;
+mod routes;
+mod db;
+mod handlers;
+mod services;
+mod models;
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    dotenv().ok();
+    logger::init();
+
+    let mongo_repo = db::MongoRepo::init().await;
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(mongo_repo.clone()))
+            .wrap(middleware::Logger::default())
+            .configure(routes::init)
+    })
+    .bind(("0.0.0.0", 8080))?
+    .run()
+    .await
+}
+
+
+File: ./src/routes/health.rs
+--------------------
+use actix_web::{web, HttpResponse, Responder};
+
+pub fn init_routes(cfg: &mut web::ServiceConfig) {
+    cfg.route("/health", actix_web::web::get().to(health_check));
+}
+
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({"status": "healthy"}))
+}
+
+
+File: ./src/routes/applications.rs
+--------------------
+use actix_web::web;
+use crate::handlers::application_handler;
+
+pub fn init_routes(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/applications")
+            .route("", web::post().to(application_handler::create_application))
+            // Add other routes like get, update, delete
+    );
+}
+
+
+File: ./src/routes/mod.rs
+--------------------
+use actix_web::web;
+
+mod logs;
+mod health;
+mod organizations;
+mod applications;
+
+pub fn init(cfg: &mut web::ServiceConfig) {
+    logs::init_routes(cfg);
+    health::init_routes(cfg);
+    organizations::init_routes(cfg);
+    applications::init_routes(cfg);
+}
+
+
+File: ./src/routes/organizations.rs
+--------------------
+use actix_web::web;
+use crate::handlers::organization_handler;
+
+pub fn init_routes(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/organizations")
+            .route("", web::post().to(organization_handler::create_organization))
+            // Add other routes like get, update, delete
+    );
+}
+
+
+File: ./src/routes/logs.rs
+--------------------
+use actix_web::web;
+use crate::handlers::log_handler;
+
+pub fn init_routes(cfg: &mut web::ServiceConfig) {
+    cfg.route("/logs", web::post().to(log_handler::save_log));
+}
+
+File: ./src/handlers/organization_handler.rs
+--------------------
+use actix_web::{web, HttpResponse, Responder};
+use crate::models::organization::Organization;
+use crate::db::MongoRepo;
+use mongodb::bson::oid::ObjectId;
+
+pub async fn create_organization(
+    payload: web::Json<Organization>,
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    let mut org = payload.into_inner();
+    org.id = Some(ObjectId::new());
+    match data.create_organization(org).await {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Organization created"})),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+File: ./src/handlers/mod.rs
+--------------------
+pub mod log_handler;
+pub mod organization_handler;
+pub mod application_handler;
+
+
+File: ./src/handlers/log_handler.rs
+--------------------
+// src/handlers/log_handler.rs
+use actix_web::{web, HttpResponse, Responder};
+use crate::services::log_service;
+use crate::models::log::LogPayload;
+use crate::db::MongoRepo;  // Added missing import
+
+pub async fn save_log(
+    payload: web::Json<LogPayload>,
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    let log = payload.into_inner();
+    match log_service::process_log(log, data).await {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Log saved"})),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+File: ./src/handlers/application_handler.rs
+--------------------
+use actix_web::{web, HttpResponse, Responder};
+use crate::models::application::Application;
+use crate::db::MongoRepo;
+use mongodb::bson::oid::ObjectId;
+
+pub async fn create_application(
+    payload: web::Json<Application>,
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    let mut app = payload.into_inner();
+    app.id = Some(ObjectId::new());
+    match data.create_application(app).await {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Application created"})),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+File: ./src/services/mod.rs
+--------------------
+pub mod log_service;
+
+
+File: ./src/services/log_service.rs
+--------------------
+use actix_web::web;  // Added missing import
+use crate::models::log::LogPayload;
+use crate::db::MongoRepo;
+use log::info;
+
+
+pub async fn process_log(log: LogPayload, data: web::Data<MongoRepo>) -> Result<(), String> {
+    info!("Processing log: {:?}", log);
+    let collection = data.db.collection::<LogPayload>("logs");
+    collection.insert_one(log, None).await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+

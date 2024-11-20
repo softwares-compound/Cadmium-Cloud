@@ -2,13 +2,12 @@ use serde::{Deserialize, Serialize};
 use mongodb::bson::oid::ObjectId;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LogPayload {
+pub struct Organization {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub organization_id: ObjectId,
-    pub application_id: ObjectId,
-    pub error: String,
-    pub traceback: String,
-    pub url: String,
-    pub method: String,
+    pub org_name: String,
+    pub admin_email: String,
+    pub admin_password: String,
+    pub cd_id: String,
+    pub cd_secret: String,
 }
