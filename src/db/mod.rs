@@ -1,7 +1,7 @@
 use mongodb::{
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Database,
-    bson::{doc, oid::ObjectId}, // Add this line to import ObjectId
+    bson::{doc, oid::ObjectId},
 };
 use std::env;
 use crate::models::{organization::Organization, application::Application};
@@ -32,23 +32,68 @@ impl MongoRepo {
         collection.insert_one(org, None).await?;
         Ok(())
     }
-
-    pub async fn get_organization_by_id(&self, org_id: ObjectId) -> Result<Option<Organization>, mongodb::error::Error> {
-        let collection = self.db.collection::<Organization>("organizations");
-        let filter = doc! { "_id": org_id };
-        collection.find_one(filter, None).await
-    }
-
     // Application CRUD operations
     pub async fn create_application(&self, app: Application) -> Result<(), mongodb::error::Error> {
         let collection = self.db.collection::<Application>("applications");
         collection.insert_one(app, None).await?;
         Ok(())
     }
+    pub async fn get_organization_by_cd_id_and_secret(
+        &self,
+        cd_id: &str,
+        cd_secret: &str,
+    ) -> Result<Option<Organization>, mongodb::error::Error> {
+        let collection = self.db.collection::<Organization>("organizations");
+        
+        // Clean the incoming credentials
+        let clean_cd_id = cd_id.trim().trim_matches('"');
+        let clean_cd_secret = cd_secret.trim().trim_matches('"');
+        println!("CD-ID: {}, CD-Secret: {}", clean_cd_id, clean_cd_secret);
+        
+        
+        log::debug!("Attempting to find organization with CD-ID: {} and CD-Secret: {}", 
+            clean_cd_id, clean_cd_secret);
+
+        // Use a more flexible query with $regex for exact matching
+        let filter = doc! {
+            "cd_id": clean_cd_id.to_string(),
+            "cd_secret": clean_cd_secret.to_string()
+        };
+
+        log::debug!("Query filter: {:?}", filter);
+        println!("Query filter: {:?}", filter);
+        let result = collection.find_one(filter, None).await?;
+        
+        if let Some(ref org) = result {
+            log::info!("Found organization: {}", org.org_name);
+            log::debug!("Stored CD-ID: {}, CD-Secret: {}", 
+                org.cd_id.trim_matches('"'), 
+                org.cd_secret.trim_matches('"'));
+        } else {
+            log::warn!("No organization found for the provided credentials");
+        }
+        
+        Ok(result)
+    }
 
     pub async fn get_application_by_id(&self, app_id: ObjectId) -> Result<Option<Application>, mongodb::error::Error> {
         let collection = self.db.collection::<Application>("applications");
         let filter = doc! { "_id": app_id };
-        collection.find_one(filter, None).await
+        
+        match collection.find_one(filter, None).await {
+            Ok(Some(app)) => {
+                log::debug!("Found application with ID: {}", app_id);
+                Ok(Some(app))
+            },
+            Ok(None) => {
+                log::warn!("No application found for ID: {}", app_id);
+                Ok(None)
+            },
+            Err(e) => {
+                log::error!("Database error while looking up application: {}", e);
+                Err(e)
+            }
+        }
     }
+
 }

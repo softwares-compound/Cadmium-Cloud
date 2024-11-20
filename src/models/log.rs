@@ -5,8 +5,10 @@ use mongodb::bson::oid::ObjectId;
 pub struct LogPayload {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub organization_id: ObjectId,
-    pub application_id: ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization_id: Option<ObjectId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub application_id: Option<ObjectId>,
     pub error: String,
     pub traceback: String,
     pub url: String,
