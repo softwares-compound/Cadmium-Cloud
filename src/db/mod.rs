@@ -1,10 +1,10 @@
+use crate::models::{application::Application, organization::Organization};
 use mongodb::{
+    bson::{doc, oid::ObjectId},
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Database,
-    bson::{doc, oid::ObjectId},
 };
 use std::env;
-use crate::models::{organization::Organization, application::Application};
 
 #[derive(Clone)]
 pub struct MongoRepo {
@@ -14,7 +14,9 @@ pub struct MongoRepo {
 impl MongoRepo {
     pub async fn init() -> Self {
         let uri = env::var("MONGODB_URI").expect("MONGODB_URI must be set");
-        let mut client_options = ClientOptions::parse(&uri).await.expect("Failed to parse client options");
+        let mut client_options = ClientOptions::parse(&uri)
+            .await
+            .expect("Failed to parse client options");
 
         // Set the server API version
         let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
@@ -27,7 +29,10 @@ impl MongoRepo {
     }
 
     // Organization CRUD operations
-    pub async fn create_organization(&self, org: Organization) -> Result<(), mongodb::error::Error> {
+    pub async fn create_organization(
+        &self,
+        org: Organization,
+    ) -> Result<(), mongodb::error::Error> {
         let collection = self.db.collection::<Organization>("organizations");
         collection.insert_one(org, None).await?;
         Ok(())
@@ -44,15 +49,17 @@ impl MongoRepo {
         cd_secret: &str,
     ) -> Result<Option<Organization>, mongodb::error::Error> {
         let collection = self.db.collection::<Organization>("organizations");
-        
+
         // Clean the incoming credentials
         let clean_cd_id = cd_id.trim().trim_matches('"');
         let clean_cd_secret = cd_secret.trim().trim_matches('"');
         println!("CD-ID: {}, CD-Secret: {}", clean_cd_id, clean_cd_secret);
-        
-        
-        log::debug!("Attempting to find organization with CD-ID: {} and CD-Secret: {}", 
-            clean_cd_id, clean_cd_secret);
+
+        log::debug!(
+            "Attempting to find organization with CD-ID: {} and CD-Secret: {}",
+            clean_cd_id,
+            clean_cd_secret
+        );
 
         // Use a more flexible query with $regex for exact matching
         let filter = doc! {
@@ -63,37 +70,41 @@ impl MongoRepo {
         log::debug!("Query filter: {:?}", filter);
         println!("Query filter: {:?}", filter);
         let result = collection.find_one(filter, None).await?;
-        
+
         if let Some(ref org) = result {
             log::info!("Found organization: {}", org.org_name);
-            log::debug!("Stored CD-ID: {}, CD-Secret: {}", 
-                org.cd_id.trim_matches('"'), 
-                org.cd_secret.trim_matches('"'));
+            log::debug!(
+                "Stored CD-ID: {}, CD-Secret: {}",
+                org.cd_id.trim_matches('"'),
+                org.cd_secret.trim_matches('"')
+            );
         } else {
             log::warn!("No organization found for the provided credentials");
         }
-        
+
         Ok(result)
     }
 
-    pub async fn get_application_by_id(&self, app_id: ObjectId) -> Result<Option<Application>, mongodb::error::Error> {
+    pub async fn get_application_by_id(
+        &self,
+        app_id: ObjectId,
+    ) -> Result<Option<Application>, mongodb::error::Error> {
         let collection = self.db.collection::<Application>("applications");
         let filter = doc! { "_id": app_id };
-        
+
         match collection.find_one(filter, None).await {
             Ok(Some(app)) => {
                 log::debug!("Found application with ID: {}", app_id);
                 Ok(Some(app))
-            },
+            }
             Ok(None) => {
                 log::warn!("No application found for ID: {}", app_id);
                 Ok(None)
-            },
+            }
             Err(e) => {
                 log::error!("Database error while looking up application: {}", e);
                 Err(e)
             }
         }
     }
-
 }

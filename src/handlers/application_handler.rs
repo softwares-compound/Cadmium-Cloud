@@ -1,6 +1,6 @@
-use actix_web::{web, HttpResponse, Responder};
-use crate::models::application::Application;
 use crate::db::MongoRepo;
+use crate::models::application::Application;
+use actix_web::{web, HttpResponse, Responder};
 use mongodb::bson::oid::ObjectId;
 
 pub async fn create_application(

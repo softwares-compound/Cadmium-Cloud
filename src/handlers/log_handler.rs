@@ -1,21 +1,25 @@
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use crate::services::log_service;
-use crate::models::log::LogPayload;
 use crate::db::MongoRepo;
-use mongodb::bson::oid::ObjectId;
+use crate::models::log::LogPayload;
+use crate::services::log_service;
+use crate::services::websocket_queue::WebSocketQueue;
+use crate::websocket::server::WebSocketServer;
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use log::error;
+use mongodb::bson::oid::ObjectId;
 
 pub async fn save_log(
     req: HttpRequest,
     payload: web::Json<LogPayload>,
     data: web::Data<MongoRepo>,
+    websocket_server: web::Data<WebSocketServer>,
+    websocket_queue: web::Data<WebSocketQueue>,
 ) -> impl Responder {
     let cd_id = match req.headers().get("CD-ID") {
         Some(value) => match value.to_str() {
             Ok(v) => {
                 log::debug!("Received CD-ID: {}", v);
                 v
-            },
+            }
             Err(_) => {
                 log::error!("Invalid CD-ID header encoding");
                 return HttpResponse::BadRequest().json(serde_json::json!({
@@ -36,7 +40,7 @@ pub async fn save_log(
             Ok(v) => {
                 log::debug!("Received CD-Secret: {}", v);
                 v
-            },
+            }
             Err(_) => {
                 log::error!("Invalid CD-Secret header encoding");
                 return HttpResponse::BadRequest().json(serde_json::json!({
@@ -66,11 +70,14 @@ pub async fn save_log(
         }
     };
 
-    let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
+    let org = match data
+        .get_organization_by_cd_id_and_secret(cd_id, cd_secret)
+        .await
+    {
         Ok(Some(org)) => {
             log::info!("Successfully authenticated organization: {}", org.org_name);
             org
-        },
+        }
         Ok(None) => {
             log::warn!("Authentication failed for CD-ID: {}", cd_id);
             return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -108,19 +115,23 @@ pub async fn save_log(
     // Ensure the application belongs to the organization
     if app.organization_id != org.id.unwrap() {
         error!("Application does not belong to the organization");
-        return HttpResponse::Unauthorized().body("Application does not belong to the organization");
+        return HttpResponse::Unauthorized()
+            .body("Application does not belong to the organization");
     }
-
     // Process the log
     let mut log = payload.into_inner();
     log.organization_id = Some(org.id.unwrap());
     log.application_id = Some(app.id.unwrap());
 
-    match log_service::process_log(log, data).await {
+    match log_service::process_log(
+        log,
+        data.clone(),
+        websocket_server.clone(),
+        websocket_queue.clone(),
+    )
+    .await
+    {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Log saved"})),
-        Err(e) => {
-            error!("Failed to process log: {}", e);
-            HttpResponse::InternalServerError().body(e.to_string())
-        }
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }

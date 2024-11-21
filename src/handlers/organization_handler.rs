@@ -1,6 +1,6 @@
-use actix_web::{web, HttpResponse, Responder};
-use crate::models::organization::Organization;
 use crate::db::MongoRepo;
+use crate::models::organization::Organization;
+use actix_web::{web, HttpResponse, Responder};
 use mongodb::bson::oid::ObjectId;
 
 pub async fn create_organization(
