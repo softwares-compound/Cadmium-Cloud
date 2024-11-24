@@ -32,6 +32,7 @@ impl WebSocketQueue {
         let mut queue = self.queue.write().await;
         queue.push_back(entry);
         info!("Log added to retry queue. Queue size: {}", queue.len());
+        println!("Log added to retry queue. Queue size: {}", queue.len());
     }
 
     /// Retrieves and removes the oldest log entry from the retry queue, if available.
@@ -40,6 +41,10 @@ impl WebSocketQueue {
         let entry = queue.pop_front();
         if let Some(ref e) = entry {
             info!(
+                "Dequeued log for Org ID: {}, App ID: {}, Log ID: {}",
+                e.organization_id, e.application_id, e.log_id
+            );
+            println!(
                 "Dequeued log for Org ID: {}, App ID: {}, Log ID: {}",
                 e.organization_id, e.application_id, e.log_id
             );
@@ -70,6 +75,7 @@ impl WebSocketQueue {
                         "Attempting to deliver log ID: {} to Org ID: {}, App ID: {}",
                         log_entry.log_id, log_entry.organization_id, log_entry.application_id
                     );
+                    println!("Attempting to deliver log ID: {} to Org ID: {}, App ID: {}", log_entry.log_id, log_entry.organization_id, log_entry.application_id);
 
                     conn.do_send(crate::websocket::connection::SendLogId {
                         log_id: log_entry.log_id,
@@ -79,6 +85,7 @@ impl WebSocketQueue {
                         "No WebSocket connection found for Org ID: {}, App ID: {}. Re-queuing log ID: {}.",
                         log_entry.organization_id, log_entry.application_id, log_entry.log_id
                     );
+                    println!("No WebSocket connection found for Org ID: {}, App ID: {}. Re-queuing log ID: {}.", log_entry.organization_id, log_entry.application_id, log_entry.log_id);
 
                     self.enqueue(log_entry).await;
                 }

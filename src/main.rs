@@ -37,18 +37,7 @@ async fn main() -> std::io::Result<()> {
     })
     .bind(("0.0.0.0", 8080))?;
 
-    // Spawn the WebSocket queue processing task
-    let queue_processor = {
-        let websocket_server_clone = websocket_server.clone();
-        let websocket_queue_clone = websocket_queue.clone();
-        task::spawn(async move {
-            websocket_queue_clone.process_queue(|org_id, app_id| {
-                tokio::runtime::Handle::current().block_on(async {
-                    websocket_server_clone.get_connection(org_id, app_id).await
-                })
-            }).await;
-        })
-    };
+
 
     let server_result = server.run().await;
 

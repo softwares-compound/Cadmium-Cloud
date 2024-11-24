@@ -1,12 +1,14 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use actix_web_actors::ws;
 use crate::websocket::connection::WebSocketActor;
+use crate::websocket::server::WebSocketServer;
 use crate::db::MongoRepo;
 
 pub async fn websocket_handler(
     req: HttpRequest,
     stream: web::Payload,
     data: web::Data<MongoRepo>,
+    websocket_server: web::Data<WebSocketServer>,
 ) -> HttpResponse {
     let cd_id = req.headers().get("CD-ID").and_then(|h| h.to_str().ok());
     let cd_secret = req.headers().get("CD-Secret").and_then(|h| h.to_str().ok());
@@ -22,7 +24,6 @@ pub async fn websocket_handler(
     let cd_secret = cd_secret.unwrap();
     let app_id = app_id.unwrap();
 
-    // Authenticate organization and application
     let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
         Ok(Some(org)) => org,
         Ok(None) => {
@@ -60,14 +61,27 @@ pub async fn websocket_handler(
         }
     };
 
-    // Ensure the application belongs to the organization
     if app.organization_id != org.id.unwrap() {
         return HttpResponse::Unauthorized().json(serde_json::json!({
             "error": "Application does not belong to the organization"
         }));
     }
 
-    // Start WebSocket session
-    ws::start(WebSocketActor::new(org.id.unwrap(), app.id.unwrap()), &req, stream)
-        .unwrap_or_else(|_| HttpResponse::InternalServerError().finish())
+    let ws = WebSocketActor::new(org.id.unwrap(), app.id.unwrap());
+    
+    // Use WsResponseBuilder to create the WebSocket connection
+    match ws::WsResponseBuilder::new(ws, &req, stream).start_with_addr() {
+        Ok((addr, response)) => {  // Note: swapped the order here - addr comes first
+            // Add the connection to the WebSocket server
+            websocket_server
+                .add_connection(org.id.unwrap(), app.id.unwrap(), addr)
+                .await;
+            // Return the WebSocket response
+            response
+        }
+        Err(e) => {
+            log::error!("Failed to start WebSocket: {:?}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }

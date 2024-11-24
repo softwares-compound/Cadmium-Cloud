@@ -2,7 +2,7 @@ use actix::{Actor, Handler,ActorContext, Message};
 use actix_web_actors::ws;
 use mongodb::bson::oid::ObjectId;
 use actix::StreamHandler;
-
+use actix::AsyncContext;
 
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -38,6 +38,9 @@ impl Handler<SendLogId> for WebSocketActor {
     }
 }
 
+
+
+
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
@@ -48,6 +51,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
             }
             Ok(ws::Message::Close(reason)) => {
                 log::info!("WebSocket connection closing: {:?}", reason);
+
+                // Get the current actor's address
+                let conn = ctx.address();
+                let org_id = self.organization_id.clone();
+                let app_id = self.application_id.clone();
+
+                // Call remove_connection asynchronously
+                let websocket_server = crate::websocket::server::WebSocketServer::new(); // Ensure this is a shared instance
+                actix::spawn(async move {
+                    websocket_server.remove_connection(org_id, app_id, conn).await;
+                });
+
                 ctx.stop();
             }
             _ => ctx.stop(),

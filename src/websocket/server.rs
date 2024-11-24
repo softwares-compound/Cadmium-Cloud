@@ -92,6 +92,7 @@ impl WebSocketServer {
                 org_id,
                 app_id
             );
+            println!("Pushing log ID: {} to WebSocket connection for Org ID: {}, App ID: {}", log_id, org_id, app_id);
             conn.do_send(crate::websocket::connection::SendLogId { log_id });
             true
         } else {
@@ -100,6 +101,7 @@ impl WebSocketServer {
                 org_id,
                 app_id
             );
+            println!("No WebSocket connection found for Org ID: {}, App ID: {}", org_id, app_id);
             false
         }
     }

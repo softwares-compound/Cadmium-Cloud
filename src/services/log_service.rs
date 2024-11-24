@@ -23,6 +23,7 @@ pub async fn process_log(
         .ok_or("Failed to retrieve inserted log ID")?;
 
     log::info!("Log inserted with ID: {}", log_id);
+    println!("Log inserted with ID: {}", log_id);
 
     // Attempt to deliver the log via WebSocket
     let org_id = log.organization_id.ok_or("Organization ID missing")?;
@@ -32,13 +33,13 @@ pub async fn process_log(
         .push_log_id(org_id.clone(), app_id.clone(), log_id.clone())
         .await
     {
-        // If no connection is available, add to the retry queue
-        let retry_entry = RetryQueueEntry {
-            organization_id: org_id,
-            application_id: app_id,
-            log_id,
-        };
-        websocket_queue.enqueue(retry_entry).await;
+        // // If no connection is available, add to the retry queue
+        // let retry_entry = RetryQueueEntry {
+        //     organization_id: org_id,
+        //     application_id: app_id,
+        //     log_id,
+        // };
+        // websocket_queue.enqueue(retry_entry).await;
     }
 
     Ok(())
