@@ -1,16 +1,21 @@
 use crate::db::MongoRepo; // Fixes missing `MongoRepo`
 use crate::models::log::LogPayload; // Fixes missing `LogPayload`
 use crate::services::websocket_queue::{RetryQueueEntry, WebSocketQueue};
+use chrono::Utc;
 use crate::websocket::server::WebSocketServer; // Fixes unresolved `WebSocketServer`
 use actix_web::web; // Fixes `use of undeclared crate or module 'web'` // Fixes unresolved `websocket_queue`
 
 pub async fn process_log(
-    log: LogPayload,
+    mut log: LogPayload,
     data: web::Data<MongoRepo>,
     websocket_server: web::Data<WebSocketServer>,
     websocket_queue: web::Data<WebSocketQueue>,
 ) -> Result<(), String> {
     log::info!("Processing log: {:?}", log);
+    // Set created_at and updated_at if not already provided
+    let now = Utc::now();
+    log.created_at = log.created_at.or(Some(now));
+    log.updated_at = log.updated_at.or(Some(now));
 
     let collection = data.db.collection::<LogPayload>("logs");
     let inserted_log = collection
