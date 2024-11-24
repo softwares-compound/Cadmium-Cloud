@@ -5,7 +5,10 @@ use crate::services::websocket_queue::WebSocketQueue;
 use crate::websocket::server::WebSocketServer;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use log::error;
-use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::options::FindOptions;
+use futures_util::stream::TryStreamExt; 
+
 
 pub async fn save_log(
     req: HttpRequest,
@@ -133,5 +136,178 @@ pub async fn save_log(
     {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Log saved"})),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+
+
+
+pub async fn get_log_by_id(
+    req: HttpRequest,
+    path: web::Path<String>,
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    // Extract headers for authentication
+    let cd_id = req
+        .headers()
+        .get("CD-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let cd_secret = req
+        .headers()
+        .get("CD-Secret")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let app_id = req
+        .headers()
+        .get("Application-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+
+    // Validate ObjectId from URL
+    let log_id = match ObjectId::parse_str(path.into_inner()) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid log ID format"
+            }));
+        }
+    };
+
+    // Authenticate organization using CD-ID and CD-Secret
+    let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
+        Ok(Some(org)) => org,
+        Ok(None) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid CD-ID or CD-Secret"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to authenticate organization"
+            }));
+        }
+    };
+
+    // Validate Application-ID
+    let app_id = match ObjectId::parse_str(app_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid Application-ID format"
+            }));
+        }
+    };
+
+    // Ensure application belongs to the authenticated organization
+    let app = match data.get_application_by_id(app_id).await {
+        Ok(Some(app)) if app.organization_id == org.id.unwrap() => app,
+        Ok(_) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Application does not belong to the organization"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to validate application"
+            }));
+        }
+    };
+
+    // Fetch log from database
+    let collection = data.db.collection::<LogPayload>("logs");
+    match collection.find_one(doc! { "_id": log_id, "application_id": app.id.unwrap() }, None).await
+    {
+        Ok(Some(log)) => HttpResponse::Ok().json(log),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "error": "Log not found"
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "Failed to retrieve log"
+        })),
+    }
+}
+
+
+/// Fetch all logs for a specific organization and application.
+pub async fn get_all_logs(
+    req: HttpRequest,
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    // Extract headers
+    let cd_id = req
+        .headers()
+        .get("CD-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let cd_secret = req
+        .headers()
+        .get("CD-Secret")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let app_id = req
+        .headers()
+        .get("Application-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+
+    // Authenticate organization using CD-ID and CD-Secret
+    let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
+        Ok(Some(org)) => org,
+        Ok(None) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid CD-ID or CD-Secret"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to authenticate organization"
+            }));
+        }
+    };
+
+    // Validate Application-ID
+    let app_id = match mongodb::bson::oid::ObjectId::parse_str(app_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid Application-ID format"
+            }));
+        }
+    };
+
+    let app = match data.get_application_by_id(app_id).await {
+        Ok(Some(app)) if app.organization_id == org.id.unwrap() => app,
+        Ok(_) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Application does not belong to the organization"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to validate application"
+            }));
+        }
+    };
+
+    // Fetch logs from the database
+    let collection = data.db.collection::<LogPayload>("logs");
+    let filter = doc! { "application_id": app.id.unwrap() };
+
+    let find_options = FindOptions::builder()
+        .sort(doc! { "_id": -1 }) // Optional: Sort by descending order of insertion
+        .build();
+
+    match collection.find(filter, find_options).await {
+        Ok(mut cursor) => {
+            let mut logs = Vec::new();
+            while let Some(log) = cursor.try_next().await.unwrap_or(None) {
+                logs.push(log);
+            }
+            HttpResponse::Ok().json(logs)
+        }
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "Failed to retrieve logs"
+        })),
     }
 }

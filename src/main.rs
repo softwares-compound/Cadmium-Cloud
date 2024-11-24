@@ -1,7 +1,6 @@
 use actix_web::{middleware, web, App, HttpServer};
 
 use dotenv::dotenv;
-use tokio::task;
 mod db;
 mod handlers;
 mod logger;

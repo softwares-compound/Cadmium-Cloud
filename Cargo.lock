@@ -467,6 +467,7 @@ dependencies = [
  "actix-web-actors",
  "dotenv",
  "env_logger",
+ "futures-util",
  "log",
  "mongodb",
  "serde",
