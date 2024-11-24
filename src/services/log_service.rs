@@ -1,6 +1,6 @@
 use crate::db::MongoRepo; // Fixes missing `MongoRepo`
 use crate::models::log::LogPayload; // Fixes missing `LogPayload`
-use crate::services::websocket_queue::{RetryQueueEntry, WebSocketQueue};
+use crate::services::websocket_queue::WebSocketQueue;
 use chrono::Utc;
 use crate::websocket::server::WebSocketServer; // Fixes unresolved `WebSocketServer`
 use actix_web::web; // Fixes `use of undeclared crate or module 'web'` // Fixes unresolved `websocket_queue`

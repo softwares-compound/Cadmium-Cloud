@@ -1,5 +1,4 @@
 use actix_web::{middleware, web, App, HttpServer, HttpRequest};
-use async_graphql::Schema;
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use dotenv::dotenv;
 

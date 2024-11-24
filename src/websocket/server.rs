@@ -85,24 +85,29 @@ impl WebSocketServer {
 
     /// Pushes a log ID to one connection for a specific organization and application.
     pub async fn push_log_id(&self, org_id: ObjectId, app_id: ObjectId, log_id: ObjectId) -> bool {
-        if let Some(conn) = self.get_connection(org_id, app_id).await {
-            log::info!(
-                "Pushing log ID: {} to WebSocket connection for Org ID: {}, App ID: {}",
-                log_id,
-                org_id,
-                app_id
-            );
-            println!("Pushing log ID: {} to WebSocket connection for Org ID: {}, App ID: {}", log_id, org_id, app_id);
-            conn.do_send(crate::websocket::connection::SendLogId { log_id });
-            true
-        } else {
-            log::warn!(
-                "No WebSocket connection found for Org ID: {}, App ID: {}",
-                org_id,
-                app_id
-            );
-            println!("No WebSocket connection found for Org ID: {}, App ID: {}", org_id, app_id);
-            false
+        let org_id_str = org_id.to_string();
+        let app_id_str = app_id.to_string();
+    
+        let connections = self.connections.read().await;
+        if let Some(app_map) = connections.get(&org_id_str) {
+            if let Some(conn_list) = app_map.get(&app_id_str) {
+                for conn in conn_list {
+                    log::info!(
+                        "Pushing log ID: {} to WebSocket connection for Org ID: {}, App ID: {}",
+                        log_id, org_id, app_id
+                    );
+                    conn.do_send(crate::websocket::connection::SendLogId { log_id });
+                }
+                return true;
+            }
         }
+    
+        log::warn!(
+            "No WebSocket connection found for Org ID: {}, App ID: {}",
+            org_id,
+            app_id
+        );
+        false
     }
+    
 }
