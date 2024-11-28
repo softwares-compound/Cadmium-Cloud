@@ -8,22 +8,20 @@ use actix::AsyncContext;
 #[rtype(result = "()")]
 pub struct SendLogId {
     pub log_id: ObjectId,
+    pub app_id: ObjectId,
 }
 
 /// Represents a WebSocket connection.
 pub struct WebSocketActor {
     pub organization_id: ObjectId,
-    pub application_id: ObjectId,
 }
 
 impl WebSocketActor {
-    pub fn new(organization_id: ObjectId, application_id: ObjectId) -> Self {
-        Self {
-            organization_id,
-            application_id,
-        }
+    pub fn new(organization_id: ObjectId) -> Self {
+        Self { organization_id }
     }
 }
+
 
 impl Actor for WebSocketActor {
     type Context = ws::WebsocketContext<Self>;
@@ -33,7 +31,7 @@ impl Handler<SendLogId> for WebSocketActor {
     type Result = ();
 
     fn handle(&mut self, msg: SendLogId, ctx: &mut Self::Context) {
-        let message = format!("New log ID: {}", msg.log_id);
+        let message = format!("New log ID: {} and App ID: {}", msg.log_id,msg.app_id);
         ctx.text(message);
     }
 }
@@ -55,12 +53,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 // Get the current actor's address
                 let conn = ctx.address();
                 let org_id = self.organization_id.clone();
-                let app_id = self.application_id.clone();
 
                 // Call remove_connection asynchronously
-                let websocket_server = crate::websocket::server::WebSocketServer::new(); // Ensure this is a shared instance
+                let websocket_server = crate::websocket::server::WebSocketServer::new(); 
                 actix::spawn(async move {
-                    websocket_server.remove_connection(org_id, app_id, conn).await;
+                    websocket_server.remove_connection(org_id, conn).await;
                 });
 
                 ctx.stop();

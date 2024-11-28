@@ -78,7 +78,7 @@ impl WebSocketQueue {
                     println!("Attempting to deliver log ID: {} to Org ID: {}, App ID: {}", log_entry.log_id, log_entry.organization_id, log_entry.application_id);
 
                     conn.do_send(crate::websocket::connection::SendLogId {
-                        log_id: log_entry.log_id,
+                        log_id: log_entry.log_id,app_id:log_entry.application_id
                     });
                 } else {
                     warn!(
