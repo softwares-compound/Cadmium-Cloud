@@ -1,7 +1,7 @@
 use actix_web::{middleware, web, App, HttpServer, HttpRequest};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use dotenv::dotenv;
-
+use actix_cors::Cors; // Import Cors middleware
 mod db;
 mod handlers;
 mod logger;
@@ -40,6 +40,12 @@ async fn main() -> std::io::Result<()> {
             .app_data(websocket_server_data.clone())
             .app_data(websocket_queue_data.clone())
             .wrap(middleware::Logger::default())
+            .wrap(
+                Cors::default() // Configure CORS to allow all origins
+                    .allow_any_origin() // Allow any origin (bypass CORS)
+                    .allow_any_method() // Allow any HTTP method
+                    .allow_any_header() // Allow any header
+            )
             .configure(routes::init)
             .route("/graphql", web::post().to(graphql_handler))
     })
