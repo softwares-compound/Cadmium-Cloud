@@ -19,6 +19,8 @@ pub struct LogPayload {
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rag_inference: Option<serde_json::Value>, // Optional and can accept any structure
 }
 
 #[derive(SimpleObject)]
@@ -32,6 +34,7 @@ pub struct LogPayloadGql {
     pub method: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
+    pub rag_inference: Option<String>, // Represent as a JSON string in GraphQL
 }
 
 impl From<LogPayload> for LogPayloadGql {
@@ -46,6 +49,7 @@ impl From<LogPayload> for LogPayloadGql {
             method: log.method,
             created_at: log.created_at.map(|dt| dt.to_rfc3339()),
             updated_at: log.updated_at.map(|dt| dt.to_rfc3339()),
+            rag_inference: log.rag_inference.map(|v| v.to_string()), // Serialize the JSON to a string
         }
     }
 }

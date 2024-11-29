@@ -4,7 +4,10 @@ use crate::services::log_service;
 use crate::services::websocket_queue::WebSocketQueue;
 use crate::websocket::server::WebSocketServer;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use log::error;
+use serde_json::Value;
+use log::{error, info};
+use mongodb::bson;
+
 use mongodb::bson::{doc, oid::ObjectId};
 use mongodb::options::FindOptions;
 use futures_util::stream::TryStreamExt; 
@@ -308,6 +311,108 @@ pub async fn get_all_logs(
         }
         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": "Failed to retrieve logs"
+        })),
+    }
+}
+
+
+/// Update the `rag_inference` field of a specific log.
+pub async fn update_rag_inference(
+    req: HttpRequest,
+    path: web::Path<String>,
+    data: web::Data<MongoRepo>,
+    payload: web::Json<Value>, // The `rag_inference` data
+) -> impl Responder {
+    // Extract headers for authentication
+    let cd_id = req
+        .headers()
+        .get("CD-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let cd_secret = req
+        .headers()
+        .get("CD-Secret")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let app_id = req
+        .headers()
+        .get("Application-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+
+    // Parse `log_id` from the URL
+    let log_id = match ObjectId::parse_str(path.into_inner()) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid log ID format"
+            }));
+        }
+    };
+
+    // Authenticate the organization using `CD-ID` and `CD-Secret`
+    let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
+        Ok(Some(org)) => org,
+        Ok(None) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid CD-ID or CD-Secret"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to authenticate organization"
+            }));
+        }
+    };
+
+    // Validate the `Application-ID`
+    let app_id = match ObjectId::parse_str(app_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid Application-ID format"
+            }));
+        }
+    };
+
+    let app = match data.get_application_by_id(app_id).await {
+        Ok(Some(app)) if app.organization_id == org.id.unwrap() => app,
+        Ok(_) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Application does not belong to the organization"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to validate application"
+            }));
+        }
+    };
+
+    // Update the `rag_inference` field in the log
+    let collection = data.db.collection::<LogPayload>("logs");
+    let filter = doc! {
+        "_id": log_id,
+        "application_id": app.id.unwrap(),
+    };
+    let update = doc! {
+        "$set": {
+            "rag_inference": bson::to_bson(&payload.into_inner()).unwrap_or(bson::Bson::Null),
+        }
+    };
+
+    match collection.update_one(filter, update, None).await {
+        Ok(update_result) if update_result.matched_count > 0 => {
+            info!("Updated `rag_inference` for log ID: {}", log_id);
+            HttpResponse::Ok().json(serde_json::json!({
+                "message": "RAG inference updated successfully"
+            }))
+        }
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "error": "Log not found"
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "Failed to update RAG inference"
         })),
     }
 }
