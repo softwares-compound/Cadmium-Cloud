@@ -22,7 +22,7 @@ impl MongoRepo {
         let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
         client_options.server_api = Some(server_api);
         // Customize connection pooling settings
-        client_options.max_pool_size = Some(100); // Maximum number of connections in the pool
+        client_options.max_pool_size = Some(200); // Maximum number of connections in the pool
         client_options.min_pool_size = Some(10);  // Minimum number of connections in the pool
         client_options.connect_timeout = Some(std::time::Duration::from_secs(10)); // Connection timeout
 
