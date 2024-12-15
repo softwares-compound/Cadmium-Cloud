@@ -11,8 +11,11 @@ services:
       - "8080:8080"
     environment:
       - RUST_LOG=info 
-      - MONGODB_URI=mongodb+srv://Cadmium-Default:Apple%40123@cadmium-server.wtwv7.mongodb.net/?retryWrites=true&w=majority&appName=Cadmium-Server
+      - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud # Updated for local container MongoDB connection
       - MONGODB_DB=cadmium-cloud
+    depends_on:
+      mongodb:
+        condition: service_healthy # Wait for MongoDB to be ready
 
   mongodb:
     image: mongo:latest
@@ -21,7 +24,12 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongodb-data:/data/db 
+      - mongodb-data:/data/db
+    healthcheck: # Ensures MongoDB is ready before dependent services start
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   nginx:
     image: nginx:latest
@@ -32,7 +40,8 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - cadmium-cloud
+      cadmium-cloud:
+        condition: service_started # Wait for Rust app to start
 
 volumes:
   mongodb-data:
