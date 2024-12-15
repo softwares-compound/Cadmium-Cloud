@@ -18,19 +18,32 @@ services:
         condition: service_healthy # Wait for MongoDB to be ready
 
   mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    restart: always
-    ports:
-      - "27017:27017"
-    volumes:
-      # Mount the block volume directly to /data/db
-      - /mnt/block-volume:/data/db
-    healthcheck: # Ensures MongoDB is ready before dependent services start
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      image: mongo:latest
+      container_name: mongodb
+      restart: always
+      ports:
+        - "27017:27017"
+      volumes:
+        - /mnt/block-volume:/data/db
+        - ./mongod.conf:/etc/mongod.conf:ro
+      command: ["mongod", "--config", "/etc/mongod.conf"]
+      ulimits:
+        nofile:
+          soft: 64000
+          hard: 64000
+      deploy:
+        resources:
+          limits:
+            cpus: '3'
+            memory: 16G
+          reservations:
+            cpus: '2'
+            memory: 12G
+      healthcheck:
+        test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+        interval: 10s
+        timeout: 10s
+        retries: 3
 
   nginx:
     image: nginx:latest
