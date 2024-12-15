@@ -16,26 +16,20 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy # Wait for MongoDB to be ready
-    ulimits:
-      nofile: 65535 # Increase file descriptors for Rust app
 
   mongodb:
-    image: mongo:6
+    image: mongo:latest
     container_name: mongodb
     restart: always
     ports:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=cadmium-cloud
     healthcheck: # Ensures MongoDB is ready before dependent services start
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
+      interval: 10s
+      timeout: 10s
       retries: 5
-    ulimits:
-      nofile: 65535 # Increase file descriptors for MongoDB
 
   nginx:
     image: nginx:latest
