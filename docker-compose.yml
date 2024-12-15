@@ -25,11 +25,14 @@ services:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
-    healthcheck: # Ensures MongoDB is ready before dependent services start
+      - ./mongod.conf:/etc/mongod.conf:ro
+    command: ["mongod", "--config", "/etc/mongod.conf"]
+    healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 10s
       retries: 5
+
 
   nginx:
     image: nginx:latest
