@@ -26,9 +26,9 @@ services:
     volumes:
       # Mount block volume for persistence
       - /mnt/block-volume:/data/db
-      # Add a configuration file for custom performance tuning
-      - ./mongo.conf:/etc/mongo/mongod.conf:ro
-    command: ["mongod", "--config", "/etc/mongo/mongod.conf"] # Use custom config
+      # Correctly mount the configuration file
+      - ./mongod.conf:/etc/mongo/mongod.conf:ro
+    command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
     environment:
       - TZ=UTC # Set timezone for consistent timestamps
     healthcheck:
@@ -36,6 +36,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+
 
   nginx:
     image: nginx:latest
