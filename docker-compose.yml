@@ -11,7 +11,7 @@ services:
       - "8080:8080"
     environment:
       - RUST_LOG=info 
-      - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud # Updated for local container MongoDB connection
+      - MONGODB_URI=mongodb+srv://Cadmium-Default:Apple%40123@cadmium-server.wtwv7.mongodb.net/?retryWrites=true&w=majority&appName=Cadmium-Server # Updated for local container MongoDB connection
       - MONGODB_DB=cadmium-cloud
     depends_on:
       mongodb:
