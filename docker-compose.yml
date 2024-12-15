@@ -31,14 +31,14 @@ services:
       timeout: 10s
       retries: 5
 
-  haproxy:
-    image: haproxy:latest
-    container_name: haproxy
+  nginx:
+    image: nginx:latest
+    container_name: nginx
     restart: always
     ports:
       - "80:80"
     volumes:
-      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       cadmium-cloud:
         condition: service_started # Wait for Rust app to start
