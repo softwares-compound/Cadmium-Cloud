@@ -11,7 +11,7 @@ services:
       - "8080:8080"
     environment:
       - RUST_LOG=info 
-      - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud
+      - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud # Updated for local container MongoDB connection
       - MONGODB_DB=cadmium-cloud
     depends_on:
       mongodb:
@@ -24,19 +24,13 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      # Mount block volume for persistence
+      # Mount the block volume directly to /data/db
       - /mnt/block-volume:/data/db
-      # Correctly mount the configuration file
-      - ./mongod.conf:/etc/mongo/mongod.conf:ro
-    command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
-    environment:
-      - TZ=UTC # Set timezone for consistent timestamps
-    healthcheck:
+    healthcheck: # Ensures MongoDB is ready before dependent services start
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 10s
       retries: 5
-
 
   nginx:
     image: nginx:latest
