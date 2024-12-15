@@ -6,7 +6,8 @@ wrk.headers["Application-ID"] = "673d6733caa30090be5b410d"
 
 wrk.body = [[{
   "error": "Sample error message",
-  "traceback": "Sample traceback details",
+  "traceback": "Sample traceback details with more\nlines of code",
   "url": "http://example.com",
   "method": "GET"
 }]]
+

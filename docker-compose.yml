@@ -24,7 +24,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongodb-data:/data/db
+      # Mount the block volume directly to /data/db
+      - /mnt/block-volume:/data/db
     healthcheck: # Ensures MongoDB is ready before dependent services start
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
