@@ -8,7 +8,7 @@ services:
     container_name: cadmium-cloud
     restart: always
     ports:
-      - "8080:8080" 
+      - "8080:8080"
     environment:
       - RUST_LOG=info 
       - MONGODB_URI=mongodb+srv://Cadmium-Default:Apple%40123@cadmium-server.wtwv7.mongodb.net/?retryWrites=true&w=majority&appName=Cadmium-Server
@@ -19,4 +19,21 @@ services:
     container_name: mongodb
     restart: always
     ports:
-      - "27017:27017" 
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db 
+
+  haproxy:
+    image: haproxy:latest
+    container_name: haproxy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - cadmium-cloud
+
+volumes:
+  mongodb-data:
+    driver: local
