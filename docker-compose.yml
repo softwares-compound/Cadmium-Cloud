@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  cadmium-cloud:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadmium-cloud
+    restart: always
+    ports:
+      - "8080:8080" 
+    environment:
+      - RUST_LOG=info 
+      - MONGODB_URI=mongodb+srv://Cadmium-Default:Apple%40123@cadmium-server.wtwv7.mongodb.net/?retryWrites=true&w=majority&appName=Cadmium-Server
+      - MONGODB_DB=cadmium-cloud
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017" 
