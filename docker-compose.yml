@@ -25,6 +25,7 @@ services:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
+      - mongodb-logs:/data/log
       - ./mongod.conf:/etc/mongod.conf:ro
     command: ["mongod", "--config", "/etc/mongod.conf"]
     healthcheck:
@@ -32,8 +33,6 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-
-
 
   nginx:
     image: nginx:latest
@@ -49,4 +48,6 @@ services:
 
 volumes:
   mongodb-data:
+    driver: local
+  mongodb-logs:
     driver: local
