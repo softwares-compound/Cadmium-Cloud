@@ -11,7 +11,7 @@ services:
       - "8080:8080"
     environment:
       - RUST_LOG=info 
-      - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud # Updated for local container MongoDB connection
+      - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud
       - MONGODB_DB=cadmium-cloud
     depends_on:
       mongodb:
@@ -25,9 +25,10 @@ services:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
-      - mongodb-logs:/data/log
-      - ./mongod.conf:/etc/mongod.conf:ro
-    command: ["mongod", "--config", "/etc/mongod.conf"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: securepassword
+    command: ["mongod", "--dbpath", "/data/db"]
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -48,6 +49,4 @@ services:
 
 volumes:
   mongodb-data:
-    driver: local
-  mongodb-logs:
     driver: local
