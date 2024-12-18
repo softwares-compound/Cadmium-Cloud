@@ -9,3 +9,8 @@ pub struct Application {
     pub organization_id: Option<ObjectId>,
     pub application_name: String,
 }
+
+#[derive(Deserialize)]
+pub struct DeleteApplicationPayload {
+    pub application_id: String,
+}
