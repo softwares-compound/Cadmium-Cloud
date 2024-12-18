@@ -50,7 +50,7 @@ services:
     container_name: nginx
     restart: always
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - /var/www/certbot:/var/www/certbot # Mount Certbot directory
