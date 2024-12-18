@@ -119,7 +119,7 @@ pub async fn save_log(
     };
 
     // Ensure the application belongs to the organization
-    if app.organization_id != org.id.unwrap() {
+    if app.organization_id != Some(org.id.unwrap()) {
         error!("Application does not belong to the organization");
         return HttpResponse::Unauthorized()
             .body("Application does not belong to the organization");
@@ -204,7 +204,7 @@ pub async fn get_log_by_id(
 
     // Ensure application belongs to the authenticated organization
     let app = match data.get_application_by_id(app_id).await {
-        Ok(Some(app)) if app.organization_id == org.id.unwrap() => app,
+        Ok(Some(app)) if app.organization_id == Some(org.id.unwrap()) => app,
         Ok(_) => {
             return HttpResponse::Unauthorized().json(serde_json::json!({
                 "error": "Application does not belong to the organization"
@@ -280,7 +280,7 @@ pub async fn get_all_logs(
     };
 
     let app = match data.get_application_by_id(app_id).await {
-        Ok(Some(app)) if app.organization_id == org.id.unwrap() => app,
+        Ok(Some(app)) if app.organization_id == Some(org.id.unwrap()) => app,
         Ok(_) => {
             return HttpResponse::Unauthorized().json(serde_json::json!({
                 "error": "Application does not belong to the organization"
@@ -376,7 +376,7 @@ pub async fn update_rag_inference(
     };
 
     let app = match data.get_application_by_id(app_id).await {
-        Ok(Some(app)) if app.organization_id == org.id.unwrap() => app,
+        Ok(Some(app)) if app.organization_id == Some(org.id.unwrap())=> app,
         Ok(_) => {
             return HttpResponse::Unauthorized().json(serde_json::json!({
                 "error": "Application does not belong to the organization"

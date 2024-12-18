@@ -6,13 +6,44 @@ use actix_web::{ HttpRequest};
 use mongodb::bson::doc;
 use futures_util::stream::TryStreamExt;
 
-
 pub async fn create_application(
+    req: HttpRequest,
     payload: web::Json<Application>,
     data: web::Data<MongoRepo>,
 ) -> impl Responder {
+    // Extract CD-ID and CD-SECRET headers
+    let cd_id = req
+        .headers()
+        .get("CD-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let cd_secret = req
+        .headers()
+        .get("CD-SECRET")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+
+    // Authenticate organization using CD-ID and CD-SECRET
+    let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
+        Ok(Some(org)) => org,
+        Ok(None) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid CD-ID or CD-SECRET"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to authenticate organization"
+            }));
+        }
+    };
+
+    // Prepare the application
     let mut app = payload.into_inner();
     app.id = Some(ObjectId::new());
+    app.organization_id = Some(org.id.unwrap()); // Set the authenticated organization's ID
+
+    // Save the application to the database
     match data.create_application(app).await {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Application created"})),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),

@@ -41,7 +41,7 @@ impl QueryRoot {
             .await?
             .ok_or_else(|| Error::new("Application not found"))?;
 
-        if app.organization_id != org.id.unwrap() {
+        if app.organization_id != Some(org.id.unwrap()) {
             return Err(Error::new("Unauthorized"));
         }
 
@@ -99,7 +99,7 @@ impl QueryRoot {
             .await?
             .ok_or_else(|| Error::new("Application not found"))?;
 
-        if app.organization_id != org.id.unwrap() {
+        if app.organization_id != Some(org.id.unwrap()) {
             return Err(Error::new("Unauthorized"));
         }
 
