@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 futures-util = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-async-graphql = "5.0"
+async-graphql = "7.0"
 actix-cors = "0.6" 
 async-graphql-actix-web = "5.0"
 actix-web = "4"
