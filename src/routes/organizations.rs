@@ -11,6 +11,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
             .route(
                 "",
                 web::get().to(organization_handler::get_organization_details),
-            ), // Add other routes like update, delete
+            ) 
+            .route("/login", web::post().to(organization_handler::login)), 
     );
 }

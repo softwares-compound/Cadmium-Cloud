@@ -3,6 +3,7 @@ use crate::models::organization::Organization;
 use actix_web::{web, HttpResponse, Responder,HttpRequest};
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::doc;
+use serde::Deserialize;
 
 pub async fn create_organization(
     payload: web::Json<Organization>,
@@ -57,6 +58,41 @@ pub async fn get_organization_details(
         })),
         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": "Failed to fetch organization details",
+        })),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct LoginPayload {
+    pub admin_email: String,
+    pub admin_password: String,
+}
+
+pub async fn login(
+    payload: web::Json<LoginPayload>,
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    let collection = data.db.collection::<Organization>("organizations");
+    let filter = doc! {
+        "admin_email": &payload.admin_email,
+        "admin_password": &payload.admin_password,
+    };
+
+    match collection.find_one(filter, None).await {
+        Ok(Some(org)) => {
+            let response = serde_json::json!({
+                "organization_name": org.org_name,
+                "id": org.id.unwrap().to_hex(),
+                "cd_id": org.cd_id,
+                "cd_secret": org.cd_secret,
+            });
+            HttpResponse::Ok().json(response)
+        }
+        Ok(None) => HttpResponse::Unauthorized().json(serde_json::json!({
+            "error": "Invalid email or password",
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "Failed to authenticate organization",
         })),
     }
 }
