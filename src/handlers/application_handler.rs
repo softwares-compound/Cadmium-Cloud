@@ -94,6 +94,7 @@ pub async fn get_applications(
 
             while let Some(app) = cursor.try_next().await.unwrap_or(None) {
                 let app_id = app.id.unwrap();
+                let organization_id = app.organization_id.unwrap();
 
                 let total_logs = log_collection
                     .count_documents(doc! { "application_id": app_id.clone() }, None)
@@ -133,7 +134,8 @@ pub async fn get_applications(
                     .unwrap_or(0);
 
                 applications.push(serde_json::json!({
-                    "id": app_id.to_string(),
+                    "_id": { "$oid": app_id.to_string() },
+                    "organization_id": { "$oid": organization_id.to_string() },
                     "application_name": app.application_name,
                     "total_logs": total_logs,
                     "resolved_logs": resolved_logs,
