@@ -5,17 +5,27 @@ use mongodb::bson::oid::ObjectId;
 use mongodb::bson::doc;
 use serde::Deserialize;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use serde::{ Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateOrganization {
+    pub org_name: String,
+    pub admin_email: String,
+    pub admin_password: String,
+}
 
 pub async fn create_organization(
-    payload: web::Json<Organization>,
+    payload: web::Json<CreateOrganization>,
     data: web::Data<MongoRepo>,
 ) -> impl Responder {
-    let mut org = payload.into_inner();
-    org.id = Some(ObjectId::new());
-
-    // Generate unique cd_id and cd_secret
-    org.cd_id = generate_unique_id();
-    org.cd_secret = generate_unique_id();
+    let org = Organization {
+        id: Some(ObjectId::new()),
+        org_name: payload.org_name.clone(),
+        admin_email: payload.admin_email.clone(),
+        admin_password: payload.admin_password.clone(),
+        cd_id: generate_unique_id(),
+        cd_secret: generate_unique_id(),
+    };
 
     match data.create_organization(org).await {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({
@@ -33,6 +43,7 @@ fn generate_unique_id() -> String {
         .map(char::from)
         .collect()
 }
+
 
 pub async fn get_organization_details(
     req: HttpRequest,
