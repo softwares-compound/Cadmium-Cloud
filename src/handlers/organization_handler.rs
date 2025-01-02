@@ -5,7 +5,7 @@ use mongodb::bson::oid::ObjectId;
 use mongodb::bson::doc;
 use serde::Deserialize;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use serde::{ Serialize};
+use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateOrganization {
@@ -18,6 +18,21 @@ pub async fn create_organization(
     payload: web::Json<CreateOrganization>,
     data: web::Data<MongoRepo>,
 ) -> impl Responder {
+    let existing_org = data
+        .find_one_organization(doc! {
+            "$or": [
+                { "admin_email": &payload.admin_email },
+                { "org_name": &payload.org_name }
+            ]
+        })
+        .await;
+
+    if let Ok(Some(_)) = existing_org {
+        return HttpResponse::Conflict().json(serde_json::json!({
+            "message": "An organization with the provided email or name already exists.",
+        }));
+    }
+
     let org = Organization {
         id: Some(ObjectId::new()),
         org_name: payload.org_name.clone(),
@@ -43,7 +58,6 @@ fn generate_unique_id() -> String {
         .map(char::from)
         .collect()
 }
-
 
 pub async fn get_organization_details(
     req: HttpRequest,
