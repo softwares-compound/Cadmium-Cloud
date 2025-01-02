@@ -4,6 +4,7 @@ use actix_web::{web, HttpResponse, Responder,HttpRequest};
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::doc;
 use serde::Deserialize;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 pub async fn create_organization(
     payload: web::Json<Organization>,
@@ -11,12 +12,27 @@ pub async fn create_organization(
 ) -> impl Responder {
     let mut org = payload.into_inner();
     org.id = Some(ObjectId::new());
+
+    // Generate unique cd_id and cd_secret
+    org.cd_id = generate_unique_id();
+    org.cd_secret = generate_unique_id();
+
     match data.create_organization(org).await {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({"message": "Organization created"})),
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "message": "Organization created successfully",
+        })),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
+/// Generates a unique identifier for `cd_id` and `cd_secret`.
+fn generate_unique_id() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32) // Generate a 32-character random string
+        .map(char::from)
+        .collect()
+}
 
 pub async fn get_organization_details(
     req: HttpRequest,
