@@ -176,3 +176,61 @@ pub async fn delete_application(
         })),
     }
 }
+
+pub async fn get_application(
+    req: HttpRequest,
+    path: web::Path<String>, // Extract application ID from the URL
+    data: web::Data<MongoRepo>,
+) -> impl Responder {
+    // Extract CD-ID and CD-SECRET headers
+    let cd_id = req
+        .headers()
+        .get("CD-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let cd_secret = req
+        .headers()
+        .get("CD-SECRET")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+
+    // Authenticate organization using CD-ID and CD-SECRET
+    let org = match data.get_organization_by_cd_id_and_secret(cd_id, cd_secret).await {
+        Ok(Some(org)) => org,
+        Ok(None) => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid CD-ID or CD-SECRET"
+            }));
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to authenticate organization"
+            }));
+        }
+    };
+
+    // Validate and parse application_id from the URL
+    let application_id = match ObjectId::parse_str(&path.into_inner()) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid application ID format"
+            }));
+        }
+    };
+
+    // Fetch the application by ID
+    let collection = data.db.collection::<Application>("applications");
+    match collection
+        .find_one(doc! { "_id": application_id, "organization_id": org.id.unwrap() }, None)
+        .await
+    {
+        Ok(Some(application)) => HttpResponse::Ok().json(application),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "error": "Application not found"
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "Failed to fetch application"
+        })),
+    }
+}
