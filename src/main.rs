@@ -1,3 +1,6 @@
+//! Suppresses all unused variable warnings
+#![allow(unused_variables, unused_imports, unused_mut, dead_code)]
+
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpRequest, HttpServer};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
