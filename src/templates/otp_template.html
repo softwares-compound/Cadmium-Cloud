@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>OTP Verification</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+      }
+      .otp {
+        text-align: center;
+        font-size: 30px;
+        font-weight: bold;
+        color: #007bff;
+        margin: 20px 0;
+      }
+      .footer {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">Your OTP Code</div>
+      <p>Hello,</p>
+      <p>Your OTP for verification is:</p>
+      <div class="otp">{{OTP_CODE}}</div>
+      <p>
+        Please use this code to complete your verification. This OTP is valid
+        for 10 minutes.
+      </p>
+      <p>If you did not request this code, please ignore this email.</p>
+      <div class="footer">© 2025 Neocadmium. All rights reserved.</div>
+    </div>
+  </body>
+</html>
