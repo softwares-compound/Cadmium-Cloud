@@ -48,15 +48,15 @@ pub async fn verify_email(
     // let template_path = Path::new("templates/otp_template.html");
     let base_path = env::current_dir().unwrap();
     let template_path = base_path.join("src/templates/otp_template.html");
-
     let email_template = fs::read_to_string(template_path)
         .expect("Failed to read OTP email template")
         .replace("{{OTP_CODE}}", &otp);
+    let email_body = email_template;
 
     // Send OTP using Resend API (use actix-web client)
     let email_service = EmailService::new();
     match email_service
-        .send_email(&email, "Your OTP Code", &email_template)
+        .send_email(&email, "Your OTP Code", &email_body)
         .await
     {
         Ok(_) => HttpResponse::Ok().json("OTP sent successfully"),

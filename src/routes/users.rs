@@ -1,3 +1,4 @@
+use crate::handlers::forget_password_handler;
 use crate::handlers::user_handler;
 use actix_web::web;
 
@@ -9,6 +10,18 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
                 "/signup",
                 web::post().to(user_handler::verify_otp_and_signup),
             )
-            .route("/logout", web::post().to(user_handler::logout)),
+            .route("/logout", web::post().to(user_handler::logout))
+            .route(
+                "/forgot_password",
+                web::post().to(forget_password_handler::send_reset_otp),
+            )
+            .route(
+                "/verify_reset_otp",
+                web::post().to(forget_password_handler::verify_reset_otp),
+            )
+            .route(
+                "/reset_password",
+                web::post().to(forget_password_handler::reset_password),
+            ),
     );
 }
