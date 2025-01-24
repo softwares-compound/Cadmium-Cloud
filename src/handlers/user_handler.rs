@@ -1,3 +1,4 @@
+use crate::services::email_service::EmailService;
 use crate::{
     db::MongoRepo,
     models::user::User,
@@ -25,7 +26,10 @@ pub struct OtpRequest {
     pub email: String,
 }
 
-pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) -> impl Responder {
+pub async fn verify_email(
+    payload: web::Json<OtpRequest>,
+    db: web::Data<MongoRepo>,
+) -> impl Responder {
     let email = payload.into_inner().email; // Extract email from JSON
 
     // Check if email is already registered
@@ -49,29 +53,15 @@ pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) 
         .expect("Failed to read OTP email template")
         .replace("{{OTP_CODE}}", &otp);
 
-    let body = serde_json::json!({
-        "from": "Neocadmium <noreply@neocadmium.softwarescompound.in>",
-        "to": email,
-        "subject": "Your OTP Code",
-        "html": email_template
-    });
-
     // Send OTP using Resend API (use actix-web client)
-    let client = reqwest::Client::new();
-    let _ = client
-        .post("https://api.resend.com/emails")
-        .header(
-            "Authorization",
-            format!(
-                " Bearer {}",
-                env::var("RESEND_TOKEN").expect("RESEND_TOKEN must be set")
-            ),
-        )
-        .json(&body)
-        .send()
-        .await;
-
-    HttpResponse::Ok().json("OTP sent successfully")
+    let email_service = EmailService::new();
+    match email_service
+        .send_email(&email, "Your OTP Code", &email_template)
+        .await
+    {
+        Ok(_) => HttpResponse::Ok().json("OTP sent successfully"),
+        Err(e) => HttpResponse::InternalServerError().json(format!("Failed to send email: {}", e)),
+    }
 }
 
 pub async fn verify_otp_and_signup(
