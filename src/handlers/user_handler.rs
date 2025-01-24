@@ -1,9 +1,10 @@
+use crate::services::email_service::EmailService;
 use crate::{
     db::MongoRepo,
     models::user::User,
     services::{jwt_service, otp_service},
 };
-use actix_web::cookie::Cookie;
+use actix_web::cookie::{time, Cookie};
 use actix_web::{web, HttpResponse, Responder};
 use bcrypt::{hash, DEFAULT_COST};
 use mongodb::bson::doc;
@@ -25,7 +26,10 @@ pub struct OtpRequest {
     pub email: String,
 }
 
-pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) -> impl Responder {
+pub async fn verify_email(
+    payload: web::Json<OtpRequest>,
+    db: web::Data<MongoRepo>,
+) -> impl Responder {
     let email = payload.into_inner().email; // Extract email from JSON
 
     // Check if email is already registered
@@ -44,37 +48,23 @@ pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) 
     // let template_path = Path::new("templates/otp_template.html");
     let base_path = env::current_dir().unwrap();
     let template_path = base_path.join("src/templates/otp_template.html");
-
     let email_template = fs::read_to_string(template_path)
         .expect("Failed to read OTP email template")
         .replace("{{OTP_CODE}}", &otp);
-
-    let body = serde_json::json!({
-        "from": "Neocadmium <noreply@neocadmium.softwarescompound.in>",
-        "to": email,
-        "subject": "Your OTP Code",
-        "html": email_template
-    });
+    let email_body = email_template;
 
     // Send OTP using Resend API (use actix-web client)
-    let client = reqwest::Client::new();
-    let _ = client
-        .post("https://api.resend.com/emails")
-        .header(
-            "Authorization",
-            format!(
-                " Bearer {}",
-                env::var("RESEND_TOKEN").expect("RESEND_TOKEN must be set")
-            ),
-        )
-        .json(&body)
-        .send()
-        .await;
-
-    HttpResponse::Ok().json("OTP sent successfully")
+    let email_service = EmailService::new();
+    match email_service
+        .send_email(&email, "Your OTP Code", &email_body)
+        .await
+    {
+        Ok(_) => HttpResponse::Ok().json("OTP sent successfully"),
+        Err(e) => HttpResponse::InternalServerError().json(format!("Failed to send email: {}", e)),
+    }
 }
 
-pub async fn verify_otp_and_signup(
+pub async fn verify_and_delete_otp_and_signup(
     db: web::Data<MongoRepo>,
     payload: web::Json<SignupPayload>, // Change from tuple to struct
 ) -> impl Responder {
@@ -91,7 +81,7 @@ pub async fn verify_otp_and_signup(
         return HttpResponse::Conflict().json("Email already registered");
     }
 
-    if !otp_service::verify_otp(&payload.email, &payload.otp, &db).await {
+    if !otp_service::verify_and_delete_otp(&payload.email, &payload.otp, &db).await {
         return HttpResponse::BadRequest().json("Invalid or expired OTP");
     }
 
@@ -118,4 +108,21 @@ pub async fn verify_otp_and_signup(
                 .finish(),
         )
         .json("Signup successful")
+}
+
+pub async fn logout() -> impl Responder {
+    // Clear the auth_token cookie by setting an expired one
+    // Sends a new cookie with an empty value.
+    // Sets max_age = -1 to tell the browser to delete the cookie.
+    // Uses path("/") to ensure it clears across the entire site.
+    HttpResponse::Ok()
+        .cookie(
+            Cookie::build("auth_token", "")
+                .http_only(true)
+                .secure(true)
+                .path("/") // Ensure it covers the entire domain
+                .max_age(time::Duration::seconds(-1)) // Expire immediately
+                .finish(),
+        )
+        .json(serde_json::json!({ "message": "Logout successful" }))
 }
