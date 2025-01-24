@@ -71,7 +71,7 @@ pub async fn send_reset_otp(
 }
 
 /// **Step 2: Verify OTP**
-pub async fn verify_reset_otp(
+pub async fn verify_forgot_password_otp(
     payload: web::Json<VerifyOtpRequest>,
     db: web::Data<MongoRepo>,
 ) -> impl Responder {
@@ -92,7 +92,7 @@ pub async fn reset_password(
     let payload = payload.into_inner();
 
     // Verify OTP before allowing password change
-    if !otp_service::verify_otp(&payload.email, &payload.otp, &db).await {
+    if !otp_service::verify_and_delete_otp(&payload.email, &payload.otp, &db).await {
         return HttpResponse::BadRequest().json("Invalid or expired OTP");
     }
 

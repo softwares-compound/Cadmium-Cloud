@@ -8,7 +8,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
             .route("/verify_email", web::post().to(user_handler::verify_email))
             .route(
                 "/signup",
-                web::post().to(user_handler::verify_otp_and_signup),
+                web::post().to(user_handler::verify_and_delete_otp_and_signup),
             )
             .route("/logout", web::post().to(user_handler::logout))
             .route(
@@ -16,8 +16,8 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
                 web::post().to(forget_password_handler::send_reset_otp),
             )
             .route(
-                "/verify_reset_otp",
-                web::post().to(forget_password_handler::verify_reset_otp),
+                "/verify_forgot_password",
+                web::post().to(forget_password_handler::verify_forgot_password_otp),
             )
             .route(
                 "/reset_password",

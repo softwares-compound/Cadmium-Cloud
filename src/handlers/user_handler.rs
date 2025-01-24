@@ -64,7 +64,7 @@ pub async fn verify_email(
     }
 }
 
-pub async fn verify_otp_and_signup(
+pub async fn verify_and_delete_otp_and_signup(
     db: web::Data<MongoRepo>,
     payload: web::Json<SignupPayload>, // Change from tuple to struct
 ) -> impl Responder {
@@ -81,7 +81,7 @@ pub async fn verify_otp_and_signup(
         return HttpResponse::Conflict().json("Email already registered");
     }
 
-    if !otp_service::verify_otp(&payload.email, &payload.otp, &db).await {
+    if !otp_service::verify_and_delete_otp(&payload.email, &payload.otp, &db).await {
         return HttpResponse::BadRequest().json("Invalid or expired OTP");
     }
 

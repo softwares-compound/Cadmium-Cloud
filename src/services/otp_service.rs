@@ -20,7 +20,7 @@ pub async fn generate_otp(email: &str, db: &MongoRepo) -> String {
     otp
 }
 
-pub async fn verify_otp(email: &str, otp: &str, db: &MongoRepo) -> bool {
+pub async fn verify_and_delete_otp(email: &str, otp: &str, db: &MongoRepo) -> bool {
     let collection = db.db.collection::<OtpEntry>("otps");
 
     if let Some(stored_otp) = collection
@@ -32,6 +32,29 @@ pub async fn verify_otp(email: &str, otp: &str, db: &MongoRepo) -> bool {
             .delete_one(doc! { "_id": stored_otp.id }, None)
             .await
             .unwrap(); // Remove OTP after successful verification
+        return true;
+    }
+    false
+}
+
+/// Used for password reset (does NOT delete OTP immediately)
+pub async fn verify_otp(email: &str, otp: &str, db: &MongoRepo) -> bool {
+    let collection = db.db.collection::<OtpEntry>("otps");
+
+    if let Some(stored_otp) = collection
+        .find_one(doc! { "email": email, "otp": otp }, None)
+        .await
+        .unwrap()
+    {
+        // **Mark OTP as verified instead of deleting**
+        collection
+            .update_one(
+                doc! { "_id": stored_otp.id },
+                doc! { "$set": { "verified": true } },
+                None,
+            )
+            .await
+            .unwrap();
         return true;
     }
     false
