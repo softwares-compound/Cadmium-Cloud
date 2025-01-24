@@ -50,7 +50,7 @@ pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) 
         .replace("{{OTP_CODE}}", &otp);
 
     let body = serde_json::json!({
-        "from": "Verification@neocadmium.softwarescompound.in",
+        "from": "Neocadmium <noreply@neocadmium.softwarescompound.in>",
         "to": email,
         "subject": "Your OTP Code",
         "html": email_template
