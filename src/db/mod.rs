@@ -5,7 +5,7 @@ use mongodb::{
     Client, Database,
 };
 use std::env;
-
+use mongodb::bson::Document;
 #[derive(Clone)]
 pub struct MongoRepo {
     pub db: Database,
@@ -88,7 +88,11 @@ impl MongoRepo {
 
         Ok(result)
     }
-
+    pub async fn find_one_organization(&self, filter: impl Into<Document>) -> Result<Option<Organization>, mongodb::error::Error> {
+        let collection = self.db.collection::<Organization>("organizations");
+        collection.find_one(filter.into(), None).await
+    }
+    
     pub async fn get_application_by_id(
         &self,
         app_id: ObjectId,
