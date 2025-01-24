@@ -1,10 +1,12 @@
 use crate::handlers::forget_password_handler;
+use crate::handlers::signin_handler;
 use crate::handlers::user_handler;
 use actix_web::web;
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/users")
+            .route("/signin", web::post().to(signin_handler::signin))
             .route("/verify_email", web::post().to(user_handler::verify_email))
             .route(
                 "/signup",
