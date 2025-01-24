@@ -7,6 +7,7 @@ use crate::{
 use actix_web::cookie::Cookie;
 use actix_web::{web, HttpResponse, Responder};
 use bcrypt::{hash, DEFAULT_COST};
+use mongodb::bson::doc;
 use serde::Deserialize;
 use std::env;
 use std::fs;
@@ -27,6 +28,17 @@ pub struct OtpRequest {
 
 pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) -> impl Responder {
     let email = payload.into_inner().email; // Extract email from JSON
+
+    // Check if email is already registered
+    let collection = db.db.collection::<User>("users");
+    let existing_user = collection
+        .find_one(doc! { "email": &email }, None)
+        .await
+        .unwrap();
+
+    if existing_user.is_some() {
+        return HttpResponse::Conflict().json("Email already registered");
+    }
 
     let otp = otp_service::generate_otp(&email, &db).await;
     // Read the HTML template
@@ -68,6 +80,17 @@ pub async fn verify_otp_and_signup(
     payload: web::Json<SignupPayload>, // ✅ Change from tuple to struct
 ) -> impl Responder {
     let payload = payload.into_inner(); // Convert JSON to Rust struct
+
+    // Check if email already exists BEFORE inserting
+    let collection = db.db.collection::<User>("users");
+    let existing_user = collection
+        .find_one(doc! { "email": &payload.email }, None)
+        .await
+        .unwrap();
+
+    if existing_user.is_some() {
+        return HttpResponse::Conflict().json("Email already registered");
+    }
 
     if !otp_service::verify_otp(&payload.email, &payload.otp, &db).await {
         return HttpResponse::BadRequest().json("Invalid or expired OTP");
