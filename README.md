@@ -66,8 +66,8 @@ The project is organized as follows:
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/yourusername/cadmium-cloud.git
-   cd cadmium-cloud
+   git clone https://github.com/softwares-compound/Neocadmium-Cloud.git
+   cd Neocadmium-Cloud
    ```
 
 2. **Set up environment variables**:
