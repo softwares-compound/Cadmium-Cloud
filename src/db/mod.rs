@@ -1,8 +1,8 @@
 use crate::models::{application::Application, organization::Organization};
 use mongodb::{
     bson::{doc, oid::ObjectId},
-    options::{ClientOptions, ServerApi, ServerApiVersion},
-    Client, Database,
+    options::{ClientOptions, IndexOptions, ServerApi, ServerApiVersion},
+    Client, Database, IndexModel,
 };
 use std::env;
 
@@ -23,7 +23,7 @@ impl MongoRepo {
         client_options.server_api = Some(server_api);
         // Customize connection pooling settings
         client_options.max_pool_size = Some(200); // Maximum number of connections in the pool
-        client_options.min_pool_size = Some(10);  // Minimum number of connections in the pool
+        client_options.min_pool_size = Some(10); // Minimum number of connections in the pool
         client_options.connect_timeout = Some(std::time::Duration::from_secs(10)); // Connection timeout
 
         let client = Client::with_options(client_options).expect("Failed to initialize client");
@@ -110,5 +110,20 @@ impl MongoRepo {
                 Err(e)
             }
         }
+    }
+
+    pub async fn setup_otp_ttl_index(db: &Database) {
+        let collection = db.collection::<mongodb::bson::Document>("otps");
+
+        let index_options = IndexOptions::builder()
+            .expire_after(std::time::Duration::from_secs(600)) // 10-minute expiry
+            .build();
+
+        let index_model = IndexModel::builder()
+            .keys(doc! { "created_at": 1 })
+            .options(index_options)
+            .build();
+
+        collection.create_index(index_model, None).await.unwrap();
     }
 }

@@ -1,25 +1,38 @@
-// src/services/otp_service.rs
+use crate::db::MongoRepo;
+use crate::models::otp::OtpEntry;
+use chrono::Utc;
+use mongodb::bson::doc;
+use mongodb::bson::oid::ObjectId;
 use rand::Rng;
-use std::collections::HashMap;
-use std::sync::RwLock;
 
-lazy_static::lazy_static! {
-    static ref OTP_STORAGE: RwLock<HashMap<String, String>> = RwLock::new(HashMap::new());
-}
-
-pub fn generate_otp(email: &str) -> String {
+pub async fn generate_otp(email: &str, db: &MongoRepo) -> String {
     let otp: String = rand::thread_rng().gen_range(100000..999999).to_string();
-    OTP_STORAGE
-        .write()
-        .unwrap()
-        .insert(email.to_string(), otp.clone());
+    let collection = db.db.collection::<OtpEntry>("otps");
+
+    let otp_entry = OtpEntry {
+        id: ObjectId::new(),
+        email: email.to_string(),
+        otp: otp.clone(),
+        created_at: Utc::now(),
+    };
+
+    collection.insert_one(otp_entry, None).await.unwrap();
     otp
 }
 
-pub fn verify_otp(email: &str, otp: &str) -> bool {
-    OTP_STORAGE
-        .read()
+pub async fn verify_otp(email: &str, otp: &str, db: &MongoRepo) -> bool {
+    let collection = db.db.collection::<OtpEntry>("otps");
+
+    if let Some(stored_otp) = collection
+        .find_one(doc! { "email": email, "otp": otp }, None)
+        .await
         .unwrap()
-        .get(email)
-        .map_or(false, |stored| stored == otp)
+    {
+        collection
+            .delete_one(doc! { "_id": stored_otp.id }, None)
+            .await
+            .unwrap(); // Remove OTP after successful verification
+        return true;
+    }
+    false
 }

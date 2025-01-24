@@ -7,29 +7,39 @@ use crate::{
 use actix_web::cookie::Cookie;
 use actix_web::{web, HttpResponse, Responder};
 use bcrypt::{hash, DEFAULT_COST};
+use serde::Deserialize;
 use std::env;
 use std::fs;
+#[derive(Debug, Deserialize)]
+pub struct SignupPayload {
+    pub email: String,
+    pub otp: String,
+    pub first_name: String,
+    pub middle_name: Option<String>,
+    pub last_name: String,
+    pub password: String,
+}
 
-pub async fn send_otp(payload: web::Json<String>) -> impl Responder {
-    let email = payload.into_inner();
-    let otp = otp_service::generate_otp(&email);
+#[derive(Debug, Deserialize)]
+pub struct OtpRequest {
+    pub email: String,
+}
+
+pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) -> impl Responder {
+    let email = payload.into_inner().email; // Extract email from JSON
+
+    let otp = otp_service::generate_otp(&email, &db).await;
     // Read the HTML template
     // let template_path = Path::new("templates/otp_template.html");
     let base_path = env::current_dir().unwrap();
     let template_path = base_path.join("src/templates/otp_template.html");
-
-    // println!("template_path: {:?}", template_path);
-    // println!(
-    //     "Current working directory: {:?}",
-    //     std::env::current_dir().unwrap()
-    // );
 
     let email_template = fs::read_to_string(template_path)
         .expect("Failed to read OTP email template")
         .replace("{{OTP_CODE}}", &otp);
 
     let body = serde_json::json!({
-        "from": "noreply@neocadmium.softwarescompound.in",
+        "from": "Verification@neocadmium.softwarescompound.in",
         "to": email,
         "subject": "Your OTP Code",
         "html": email_template
@@ -55,28 +65,28 @@ pub async fn send_otp(payload: web::Json<String>) -> impl Responder {
 
 pub async fn verify_otp_and_signup(
     db: web::Data<MongoRepo>,
-    payload: web::Json<(String, String, String, Option<String>, String, String)>,
+    payload: web::Json<SignupPayload>, // ✅ Change from tuple to struct
 ) -> impl Responder {
-    let (email, otp, first_name, middle_name, last_name, password) = payload.into_inner();
+    let payload = payload.into_inner(); // Convert JSON to Rust struct
 
-    if !otp_service::verify_otp(&email, &otp) {
-        return HttpResponse::BadRequest().json("Invalid OTP");
+    if !otp_service::verify_otp(&payload.email, &payload.otp, &db).await {
+        return HttpResponse::BadRequest().json("Invalid or expired OTP");
     }
 
-    let password_hash = hash(password, DEFAULT_COST).unwrap();
+    let password_hash = hash(payload.password, DEFAULT_COST).unwrap();
     let user = User {
         id: None,
-        first_name,
-        middle_name,
-        last_name,
-        email: email.clone(),
+        first_name: payload.first_name,
+        middle_name: payload.middle_name,
+        last_name: payload.last_name,
+        email: payload.email.clone(),
         password_hash,
     };
 
     let collection = db.db.collection::<User>("users");
     let _ = collection.insert_one(user, None).await;
 
-    let jwt = jwt_service::generate_jwt(&email);
+    let jwt = jwt_service::generate_jwt(&payload.email);
 
     HttpResponse::Ok()
         .cookie(
