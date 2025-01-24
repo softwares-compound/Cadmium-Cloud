@@ -1,4 +1,3 @@
-// src/services/jwt_service.rs
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};

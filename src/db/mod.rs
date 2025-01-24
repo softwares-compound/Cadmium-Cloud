@@ -30,7 +30,7 @@ impl MongoRepo {
         let db_name = env::var("MONGODB_DB").expect("MONGODB_DB must be set");
         let db = client.database(&db_name);
 
-        // ✅ Ensure email is unique
+        // Ensure email is unique
         let users_collection = db.collection::<mongodb::bson::Document>("users");
         let index_model = IndexModel::builder()
             .keys(doc! { "email": 1 })

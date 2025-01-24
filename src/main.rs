@@ -21,8 +21,8 @@ async fn main() -> std::io::Result<()> {
     logger::init();
 
     let mongo_repo = db::MongoRepo::init().await;
-    // ✅ Ensure OTP TTL index is created
-    // ✅ Call `setup_otp_ttl_index` as an associated function
+    // Ensure OTP TTL index is created
+    // Call `setup_otp_ttl_index` as an associated function
     db::MongoRepo::setup_otp_ttl_index(&mongo_repo.db).await;
 
     // Initialize the WebSocket server and queue

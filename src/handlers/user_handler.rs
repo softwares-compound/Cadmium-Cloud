@@ -1,4 +1,3 @@
-// src/handlers/user_handler.rs
 use crate::{
     db::MongoRepo,
     models::user::User,
@@ -77,7 +76,7 @@ pub async fn send_otp(payload: web::Json<OtpRequest>, db: web::Data<MongoRepo>) 
 
 pub async fn verify_otp_and_signup(
     db: web::Data<MongoRepo>,
-    payload: web::Json<SignupPayload>, // ✅ Change from tuple to struct
+    payload: web::Json<SignupPayload>, // Change from tuple to struct
 ) -> impl Responder {
     let payload = payload.into_inner(); // Convert JSON to Rust struct
 

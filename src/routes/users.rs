@@ -1,4 +1,3 @@
-// src/routes/users.rs
 use crate::handlers::user_handler;
 use actix_web::web;
 
