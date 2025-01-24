@@ -29,6 +29,18 @@ impl MongoRepo {
         let client = Client::with_options(client_options).expect("Failed to initialize client");
         let db_name = env::var("MONGODB_DB").expect("MONGODB_DB must be set");
         let db = client.database(&db_name);
+
+        // ✅ Ensure email is unique
+        let users_collection = db.collection::<mongodb::bson::Document>("users");
+        let index_model = IndexModel::builder()
+            .keys(doc! { "email": 1 })
+            .options(IndexOptions::builder().unique(true).build())
+            .build();
+        users_collection
+            .create_index(index_model, None)
+            .await
+            .expect("Failed to create unique index on email");
+
         MongoRepo { db }
     }
 
