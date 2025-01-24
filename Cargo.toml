@@ -7,7 +7,7 @@ edition = "2021"
 futures-util = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 async-graphql = "5.0"
-actix-cors = "0.6" 
+actix-cors = "0.6"
 async-graphql-actix-web = "5.0"
 actix-web = "4"
 actix = "0.13"
@@ -19,3 +19,9 @@ dotenv = "0.15"
 log = "0.4"
 env_logger = "0.10"
 tokio = { version = "1", features = ["full"] }
+actix-session = { version = "0.7", features = ["cookie-session"] }
+jsonwebtoken = "9"
+rand = "0.8"
+reqwest = { version = "0.11", features = ["json"] }
+bcrypt = "0.13"
+lazy_static = "1.4"
