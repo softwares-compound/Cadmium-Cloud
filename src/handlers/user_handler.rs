@@ -3,7 +3,7 @@ use crate::{
     models::user::User,
     services::{jwt_service, otp_service},
 };
-use actix_web::cookie::Cookie;
+use actix_web::cookie::{time, Cookie};
 use actix_web::{web, HttpResponse, Responder};
 use bcrypt::{hash, DEFAULT_COST};
 use mongodb::bson::doc;
@@ -118,4 +118,21 @@ pub async fn verify_otp_and_signup(
                 .finish(),
         )
         .json("Signup successful")
+}
+
+pub async fn logout() -> impl Responder {
+    // Clear the auth_token cookie by setting an expired one
+    // Sends a new cookie with an empty value.
+    // Sets max_age = -1 to tell the browser to delete the cookie.
+    // Uses path("/") to ensure it clears across the entire site.
+    HttpResponse::Ok()
+        .cookie(
+            Cookie::build("auth_token", "")
+                .http_only(true)
+                .secure(true)
+                .path("/") // Ensure it covers the entire domain
+                .max_age(time::Duration::seconds(-1)) // Expire immediately
+                .finish(),
+        )
+        .json(serde_json::json!({ "message": "Logout successful" }))
 }

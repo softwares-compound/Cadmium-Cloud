@@ -8,6 +8,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
             .route(
                 "/signup",
                 web::post().to(user_handler::verify_otp_and_signup),
-            ),
+            )
+            .route("/logout", web::post().to(user_handler::logout)),
     );
 }
