@@ -47,7 +47,8 @@ async fn main() -> std::io::Result<()> {
                 Cors::default() // Configure CORS to allow all origins
                     .allow_any_origin() // Allow any origin (bypass CORS)
                     .allow_any_method() // Allow any HTTP method
-                    .allow_any_header(), // Allow any header
+                    .allow_any_header() // Allow any header
+                    .supports_credentials(), // Explicitly allow credentials
             )
             .configure(routes::init)
             .route("/graphql", web::post().to(graphql_handler))
