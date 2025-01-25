@@ -40,7 +40,8 @@ pub async fn verify_email(
         .unwrap();
 
     if existing_user.is_some() {
-        return HttpResponse::Conflict().json("Email already registered");
+        return HttpResponse::Conflict()
+            .json(serde_json::json!({ "message": "Email already registered" }));
     }
 
     let otp = otp_service::generate_otp(&email, &db).await;
@@ -59,8 +60,9 @@ pub async fn verify_email(
         .send_email(&email, "Your OTP Code", &email_body)
         .await
     {
-        Ok(_) => HttpResponse::Ok().json("OTP sent successfully"),
-        Err(e) => HttpResponse::InternalServerError().json(format!("Failed to send email: {}", e)),
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "message": "OTP sent successfully" })),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "message": format!("Failed to send email: {}", e) })),
     }
 }
 
@@ -78,11 +80,13 @@ pub async fn verify_and_delete_otp_and_signup(
         .unwrap();
 
     if existing_user.is_some() {
-        return HttpResponse::Conflict().json("Email already registered");
+        return HttpResponse::Conflict()
+            .json(serde_json::json!({ "message": "Email already registered" }));
     }
 
     if !otp_service::verify_and_delete_otp(&payload.email, &payload.otp, &db).await {
-        return HttpResponse::BadRequest().json("Invalid or expired OTP");
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "message": "Invalid or expired OTP" }));
     }
 
     let password_hash = hash(payload.password, DEFAULT_COST).unwrap();
