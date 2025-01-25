@@ -67,5 +67,5 @@ pub async fn signin(payload: web::Json<SigninRequest>, db: web::Data<MongoRepo>)
         }
     }
 
-    HttpResponse::Unauthorized().json("Invalid email or password")
+    HttpResponse::Unauthorized().json(serde_json::json!({ "message": "Invalid email or password"}))
 }
