@@ -4,6 +4,7 @@ mod applications;
 mod health;
 mod logs;
 mod organizations;
+mod test;
 mod users;
 mod websocket;
 
@@ -14,4 +15,5 @@ pub fn init(cfg: &mut web::ServiceConfig) {
     applications::init_routes(cfg);
     websocket::init_routes(cfg);
     users::init_routes(cfg);
+    test::init_routes(cfg);
 }

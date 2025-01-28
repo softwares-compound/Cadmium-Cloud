@@ -111,7 +111,7 @@ pub async fn verify_and_delete_otp_and_signup(
                 .secure(true)
                 .finish(),
         )
-        .json("Signup successful")
+        .json(serde_json::json!({ "message": "Signup successful" }))
 }
 
 pub async fn logout() -> impl Responder {

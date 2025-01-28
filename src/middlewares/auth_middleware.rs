@@ -1,21 +1,22 @@
 use actix_web::{
     body::BoxBody,
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpResponse,
+    Error, HttpMessage, HttpResponse,
 };
 use futures_util::future::{ok, LocalBoxFuture, Ready};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
+use std::sync::Arc;
 use std::{
     env,
     task::{Context, Poll},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    // 🔹 Add `pub`
+    pub sub: String, // User ID or email
+    pub exp: usize,  // Expiration timestamp
 }
 
 pub struct AuthMiddleware;
@@ -32,13 +33,13 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(AuthMiddlewareService {
-            service: Rc::new(service),
+            service: Arc::new(service),
         })
     }
 }
 
 pub struct AuthMiddlewareService<S> {
-    service: Rc<S>,
+    service: Arc<S>,
 }
 
 impl<S> Service<ServiceRequest> for AuthMiddlewareService<S>
@@ -62,18 +63,34 @@ where
                 let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
                 let validation = Validation::default();
 
-                if decode::<Claims>(
+                match decode::<Claims>(
                     token,
                     &DecodingKey::from_secret(secret.as_ref()),
                     &validation,
-                )
-                .is_ok()
-                {
-                    return srv.call(req).await;
+                ) {
+                    Ok(token_data) => {
+                        let claims = token_data.claims;
+
+                        // ✅ Pass user details to next handler
+                        req.extensions_mut().insert(claims);
+
+                        return srv.call(req).await;
+                    }
+                    Err(err) => {
+                        log::warn!("JWT Decoding Error: {:?}", err);
+                        return Ok(req.into_response(
+                            HttpResponse::Unauthorized().body("Invalid or expired token"),
+                        ));
+                    }
                 }
             }
 
-            Ok(req.into_response(HttpResponse::Unauthorized().finish()))
+            log::warn!("No auth_token cookie found");
+            Ok(
+                req.into_response(
+                    HttpResponse::Unauthorized().body("Missing authentication token"),
+                ),
+            )
         })
     }
 }
