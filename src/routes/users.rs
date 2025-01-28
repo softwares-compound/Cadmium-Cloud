@@ -24,6 +24,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
             .route(
                 "/reset_password",
                 web::post().to(forget_password_handler::reset_password),
-            ),
+            )
+            .route("/validate", web::get().to(user_handler::validate_user)),
     );
 }

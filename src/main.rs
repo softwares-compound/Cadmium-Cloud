@@ -6,6 +6,7 @@ mod db;
 mod graphql;
 mod handlers;
 mod logger;
+mod middlewares;
 mod models;
 mod routes;
 mod services;

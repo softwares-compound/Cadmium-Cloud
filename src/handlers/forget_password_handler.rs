@@ -47,7 +47,8 @@ pub async fn send_reset_otp(
         .unwrap();
 
     if user_exists.is_none() {
-        return HttpResponse::NotFound().json("User with this email does not exist");
+        return HttpResponse::NotFound()
+            .json(serde_json::json!({ "message": "User with this email does not exist" }));
     }
 
     let otp = otp_service::generate_otp(&email, &db).await;
@@ -65,8 +66,11 @@ pub async fn send_reset_otp(
         .send_email(&email, "Password Reset OTP", &email_body)
         .await
     {
-        Ok(_) => HttpResponse::Ok().json("OTP sent for password reset"),
-        Err(e) => HttpResponse::InternalServerError().json(format!("Failed to send email: {}", e)),
+        Ok(_) => {
+            HttpResponse::Ok().json(serde_json::json!({ "message": "OTP sent for password reset" }))
+        }
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "message": format!("Failed to send email: {}", e) })),
     }
 }
 
@@ -78,10 +82,11 @@ pub async fn verify_forgot_password_otp(
     let payload = payload.into_inner();
 
     if !otp_service::verify_otp(&payload.email, &payload.otp, &db).await {
-        return HttpResponse::BadRequest().json("Invalid or expired OTP");
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "message": "Invalid or expired OTP" }));
     }
 
-    HttpResponse::Ok().json("OTP verified successfully")
+    HttpResponse::Ok().json(serde_json::json!({ "message": "OTP verified successfully" }))
 }
 
 /// **Step 3: Reset Password**
@@ -93,7 +98,8 @@ pub async fn reset_password(
 
     // Verify OTP before allowing password change
     if !otp_service::verify_and_delete_otp(&payload.email, &payload.otp, &db).await {
-        return HttpResponse::BadRequest().json("Invalid or expired OTP");
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "message": "Invalid or expired OTP" }));
     }
 
     let password_hash = hash(&payload.new_password, DEFAULT_COST).unwrap();
@@ -109,8 +115,8 @@ pub async fn reset_password(
         .unwrap();
 
     if update_result.matched_count == 0 {
-        return HttpResponse::NotFound().json("User not found");
+        return HttpResponse::NotFound().json(serde_json::json!({ "message": "User not found" }));
     }
 
-    HttpResponse::Ok().json("Password updated successfully")
+    HttpResponse::Ok().json(serde_json::json!({ "message": "Password updated successfully" }))
 }
