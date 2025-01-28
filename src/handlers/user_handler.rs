@@ -5,7 +5,7 @@ use crate::{
     services::{jwt_service, otp_service},
 };
 use actix_web::cookie::{time, Cookie};
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use bcrypt::{hash, DEFAULT_COST};
 use mongodb::bson::doc;
 use serde::Deserialize;
@@ -129,4 +129,40 @@ pub async fn logout() -> impl Responder {
                 .finish(),
         )
         .json(serde_json::json!({ "message": "Logout successful" }))
+}
+
+pub async fn validate_user(req: HttpRequest, db: web::Data<MongoRepo>) -> impl Responder {
+    if let Some(cookie) = req.cookie("auth_token") {
+        let token = cookie.value();
+        let user_email = match jwt_service::validate_jwt(token) {
+            Ok(email) => email,
+            Err(_) => {
+                return HttpResponse::Unauthorized()
+                    .cookie(
+                        Cookie::build("auth_token", "")
+                            .max_age(time::Duration::seconds(-1))
+                            .finish(),
+                    )
+                    .json(serde_json::json!({ "message": "Invalid token" }));
+            }
+        };
+
+        let collection = db.db.collection::<User>("users");
+        let user = collection
+            .find_one(doc! { "email": &user_email }, None)
+            .await
+            .unwrap();
+
+        if let Some(user) = user {
+            return HttpResponse::Ok().json(serde_json::json!({ "data": user, "is_valid": true }));
+        }
+    }
+
+    HttpResponse::Unauthorized()
+        .cookie(
+            Cookie::build("auth_token", "")
+                .max_age(time::Duration::seconds(-1))
+                .finish(),
+        )
+        .json(serde_json::json!({ "message": "Unauthorized" }))
 }

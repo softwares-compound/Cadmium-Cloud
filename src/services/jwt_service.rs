@@ -1,5 +1,5 @@
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -22,4 +22,16 @@ pub fn generate_jwt(email: &str) -> String {
         &EncodingKey::from_secret(secret.as_ref()),
     )
     .unwrap()
+}
+
+pub fn validate_jwt(token: &str) -> Result<String, String> {
+    let secret = env::var("JWT_SECRET").map_err(|_| "JWT_SECRET not set".to_string())?;
+    let validation = Validation::default();
+    let decoded = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_ref()),
+        &validation,
+    )
+    .map_err(|_| "Invalid token".to_string())?;
+    Ok(decoded.claims.sub)
 }
