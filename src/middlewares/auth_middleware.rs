@@ -60,6 +60,7 @@ where
         Box::pin(async move {
             if let Some(cookie) = req.cookie("auth_token") {
                 let token = cookie.value();
+                print!("🔹 JWT: {} ====>>>>", token);
                 let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
                 let validation = Validation::default();
 
