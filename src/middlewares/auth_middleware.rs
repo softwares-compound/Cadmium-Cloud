@@ -1,21 +1,23 @@
+use crate::db::MongoRepo;
+use crate::models::user::User;
 use actix_web::{
     body::BoxBody,
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse,
+    web, Error, HttpMessage, HttpResponse,
 };
 use futures_util::future::{ok, LocalBoxFuture, Ready};
 use jsonwebtoken::{decode, DecodingKey, Validation};
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::{
     env,
+    sync::Arc,
     task::{Context, Poll},
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    // 🔹 Add `pub`
-    pub sub: String, // User ID or email
+    pub sub: String, // User email
     pub exp: usize,  // Expiration timestamp
 }
 
@@ -56,11 +58,12 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
+        let db = req.app_data::<web::Data<MongoRepo>>().cloned(); // ✅ Fetch DB here
 
         Box::pin(async move {
             if let Some(cookie) = req.cookie("auth_token") {
                 let token = cookie.value();
-                print!("🔹 JWT: {} ====>>>>", token);
+                println!("Token: {}", token);
                 let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
                 let validation = Validation::default();
 
@@ -70,28 +73,48 @@ where
                     &validation,
                 ) {
                     Ok(token_data) => {
-                        let claims = token_data.claims;
+                        let user_email = token_data.claims.sub;
 
-                        // ✅ Pass user details to next handler
-                        req.extensions_mut().insert(claims);
-
-                        return srv.call(req).await;
+                        if let Some(db) = db {
+                            let collection = db.db.collection::<User>("users");
+                            match collection
+                                .find_one(doc! { "email": &user_email }, None)
+                                .await
+                            {
+                                Ok(Some(user)) => {
+                                    req.extensions_mut().insert(user);
+                                    return srv.call(req).await;
+                                }
+                                Ok(None) => {
+                                    return Ok(req.into_response(
+                                        HttpResponse::Unauthorized().json(
+                                            serde_json::json!({ "message": "User not found" }),
+                                        ),
+                                    ));
+                                }
+                                Err(_) => {
+                                    return Ok(req.into_response(
+                                        HttpResponse::InternalServerError().json(
+                                            serde_json::json!({ "message": "Database error" }),
+                                        ),
+                                    ));
+                                }
+                            }
+                        }
                     }
-                    Err(err) => {
-                        log::warn!("JWT Decoding Error: {:?}", err);
-                        return Ok(req.into_response(
-                            HttpResponse::Unauthorized().body("Invalid or expired token"),
-                        ));
+                    Err(_) => {
+                        return Ok(req
+                            .into_response(HttpResponse::Unauthorized().json(
+                                serde_json::json!({ "message": "Invalid or expired token" }),
+                            )));
                     }
                 }
             }
 
-            log::warn!("No auth_token cookie found");
-            Ok(
-                req.into_response(
-                    HttpResponse::Unauthorized().body("Missing authentication token"),
-                ),
-            )
+            Ok(req.into_response(
+                HttpResponse::Unauthorized()
+                    .json(serde_json::json!({ "message": "Missing authentication token" })),
+            ))
         })
     }
 }

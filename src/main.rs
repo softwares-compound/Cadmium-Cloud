@@ -46,7 +46,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .wrap(
                 Cors::default() // Configure CORS to allow all origins
-                    .allow_any_origin() // Allow any origin (bypass CORS)
+                    .allowed_origin("http://localhost:6967") // ✅ Allow frontend origin
+                    // .allow_any_origin() // Allow any origin (bypass CORS)
                     .allow_any_method() // Allow any HTTP method
                     .allow_any_header() // Allow any header
                     .supports_credentials(), // Explicitly allow credentials

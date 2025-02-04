@@ -1,5 +1,4 @@
 use actix_web::web;
-
 mod applications;
 mod health;
 mod logs;

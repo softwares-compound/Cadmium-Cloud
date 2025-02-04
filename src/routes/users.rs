@@ -1,6 +1,8 @@
 use crate::handlers::forget_password_handler;
 use crate::handlers::signin_handler;
+use crate::handlers::test_handler;
 use crate::handlers::user_handler;
+use crate::middlewares::auth_middleware::AuthMiddleware;
 use actix_web::web;
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
@@ -25,6 +27,8 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
                 "/reset_password",
                 web::post().to(forget_password_handler::reset_password),
             )
-            .route("/validate", web::get().to(user_handler::validate_user)),
+            .route("/validate", web::get().to(user_handler::validate_user))
+            .route("/test", web::get().to(test_handler::test_handler))
+            .wrap(AuthMiddleware),
     );
 }
